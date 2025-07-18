@@ -2,7 +2,7 @@
   "name": "@bhutan-ndi/credo-ethr-module",
   "main": "build/index",
   "types": "build/index",
-  "version": "0.0.1-testing.1",
+  "version": "1.0.3-testing.2",
   "files": [
     "build"
   ],
