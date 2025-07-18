@@ -23,7 +23,7 @@ export class EthereumDidRegistrar implements DidRegistrar {
   public readonly supportedMethods = ['ethereum']
   private resolver: Resolver
   public constructor(private config: EthereumModuleConfig) {
-    this.resolver = new Resolver(getResolver({ networks: [this.config] }) as ResolverRegistry)
+    this.resolver = new Resolver(getResolver({ options: config.config }) as ResolverRegistry)
   }
 
   public async create(agentContext: AgentContext, options: EthereumDidCreateOptions): Promise<DidCreateResult> {
@@ -347,9 +347,9 @@ export interface EthereumDidCreateOptions extends DidCreateOptions {
   method: 'ethereum'
   did?: never
   options: {
-    network: 'mainnet' | 'testnet'
+    network: string
     endpoint?: string
-    address: string
+    address?: string
   }
   secret: {
     privateKey: Buffer
