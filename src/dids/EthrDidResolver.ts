@@ -21,7 +21,6 @@ export class EthereumDidResolver implements DidResolver {
     // if (!isValidEthereumDid(did)) {
     //   throw new Error('Invalid DID')
     // }
-
     try {
       const { didDocument, didDocumentMetadata, didResolutionMetadata } = await ethereumLedgerService.resolveDID(did)
 
