@@ -52,16 +52,14 @@ describe('Ethereum Module did resolver', () => {
           registrars: [new EthereumDidRegistrar()],
         }),
         ethr: new EthereumModule({
-          config: {
-            networks: [
-              {
-                name: 'sepolia',
-                chainId: 11155111,
-                rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
-                registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
-              },
-            ],
-          },
+          didContractAddress: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
+          schemaManagerContractAddress: '0x8f3db5523620278C47b0cAf6353Ee32C5eDa95bF',
+          fileServerToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6IjliZjNiODFlLTA0ZDEtNDdmYy1iZTIwLWE2MTBiZDE5NTZlZiJ9.suWGau_pvNhGSGHRMqomqWoYhwMA7pcRt0kyHhaRZhM',
+          rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/XUo--fMnn250sIOxldOhx1J9-rput18B',
+          serverUrl: 'https://dev-schema.ngotag.com',
+          networkName: 'sepolia',
+          // chainNameOrId: '11155111',
         }),
       },
     })
@@ -104,8 +102,9 @@ describe('Ethereum Module did resolver', () => {
         network: 'sepolia',
       },
       secret: {
-        privateKey: TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6'),
+        privateKey: TypedArrayEncoder.fromHex('0xb0484f62afd79b1473ea2c0349ec98547edb9cfeed169d2449b4f1ce2f69d49c'),
       },
+      address: '0x8CC378b4d73B1fCC1e712e57D9fF2Ffcde631311',
     })
 
     console.log('createdDid--------', JSON.stringify(createdDid))
