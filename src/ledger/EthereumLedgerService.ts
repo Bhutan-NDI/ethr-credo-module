@@ -1,4 +1,4 @@
-import type { AgentContext, DidCreateOptions, DidDocument, Wallet } from '@credo-ts/core'
+import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
 
 import { PolygonSchema } from '@ayanworks/polygon-schema-manager'
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
@@ -78,7 +78,7 @@ export class EthereumLedgerService {
   private schemaManagerContractAddress: string | undefined
   private fileServerToken: string | undefined
   private fileServerUrl: string | undefined
-  private chainNameOrId: string | undefined
+  // private chainNameOrId: string | undefined
   public resolver: Resolver
 
   public constructor(ethereumConfig: EthereumModuleConfig) {
@@ -86,13 +86,13 @@ export class EthereumLedgerService {
     this.didContractAddress = ethereumConfig.didContractAddress
     this.schemaManagerContractAddress = ethereumConfig.schemaManagerContractAddress
     this.fileServerToken = ethereumConfig.fileServerToken
-    this.chainNameOrId = ethereumConfig.chainNameOrId
+    // this.chainNameOrId = ethereumConfig.chainNameOrId
     this.resolver = new Resolver(
       getResolver({
         networks: [
           {
             name: ethereumConfig.networkName,
-            chainId: this.chainNameOrId,
+            // chainId: this.chainNameOrId,
             rpcUrl: this.rpcUrl,
             registry: this.didContractAddress,
           },
@@ -262,7 +262,7 @@ export class EthereumLedgerService {
       identifier: ethrDidCreateOptions.identifier,
       privateKey: ethrDidCreateOptions.privateKey,
       rpcUrl: this.rpcUrl,
-      chainNameOrId: this.chainNameOrId,
+      // chainNameOrId: this.chainNameOrId,
       registry: this.didContractAddress,
     })
   }

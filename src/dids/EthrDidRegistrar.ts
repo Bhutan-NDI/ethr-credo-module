@@ -11,18 +11,10 @@ import type {
   DidUpdateResult,
 } from '@credo-ts/core'
 
-import {
-  DidRepository,
-  DidRecord,
-  DidDocumentRole,
-  JsonTransformer,
-  DidDocument,
-  CredoError,
-  KeyType,
-} from '@credo-ts/core'
-import { computeAddress } from 'ethers'
+import { DidRepository, DidRecord, DidDocumentRole, JsonTransformer, DidDocument, CredoError, KeyType } from '@credo-ts/core'
 
 import { EthereumLedgerService } from '../ledger'
+import { computeAddress } from 'ethers'
 
 export class EthereumDidRegistrar implements DidRegistrar {
   public readonly supportedMethods = ['ethr']
@@ -31,17 +23,17 @@ export class EthereumDidRegistrar implements DidRegistrar {
     const ledgerService = agentContext.dependencyManager.resolve(EthereumLedgerService)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
-    const privateKey = options.secret.privateKey
+    // const privateKey = options.secret.privateKey
 
-    const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
+    // const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
 
-    const publicKeyHex = key.publicKey.toString('hex')
+    // const publicKeyHex = key.publicKey.toString('hex')
 
-    const address = computeAddress('0x' + publicKeyHex)
+    // const address = computeAddress('0x' + publicKeyHex)
 
     const createEthrDidOptions: CreateEthrDidOptions = {
-      identifier: address,
-      privateKey: privateKey.toString(),
+      identifier: options.address,
+      privateKey: options.secret.privateKey.toString(),
     }
     const ethrDid = ledgerService.createDidRegistryInstance(createEthrDidOptions)
 
@@ -336,6 +328,7 @@ export interface EthereumDidCreateOptions extends DidCreateOptions {
   secret: {
     privateKey: Buffer
   }
+  address: string
 }
 
 export interface EthereumDidUpdateOptions extends DidUpdateOptions {
