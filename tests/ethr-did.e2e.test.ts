@@ -59,7 +59,7 @@ describe('Ethereum Module did resolver', () => {
           rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/XUo--fMnn250sIOxldOhx1J9-rput18B',
           serverUrl: 'https://dev-schema.ngotag.com',
           networkName: 'sepolia',
-          // chainNameOrId: '11155111',
+          chainNameOrId: '11155111',
         }),
       },
     })
@@ -102,9 +102,9 @@ describe('Ethereum Module did resolver', () => {
         network: 'sepolia',
       },
       secret: {
-        privateKey: TypedArrayEncoder.fromHex('0xb0484f62afd79b1473ea2c0349ec98547edb9cfeed169d2449b4f1ce2f69d49c'),
+        privateKey: '0x3cb8bb0812e09919a449c18ef26508dae0f63840d1c1e2842c61d0267fd2ba0d',
       },
-      address: '0x8CC378b4d73B1fCC1e712e57D9fF2Ffcde631311',
+      address: '0x13DcCbA628313e5B2D441742786bA9434C4B7919',
     })
 
     console.log('createdDid--------', JSON.stringify(createdDid))

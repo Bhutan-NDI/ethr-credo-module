@@ -10,8 +10,9 @@ export interface EthereumModuleConfigOptions {
   fileServerToken?: string
   schemaManagerContractAddress?: string
   serverUrl?: string
-  // chainNameOrId?: string
+  chainNameOrId?: string
   networkName?: string
+
 }
 
 export class EthereumModuleConfig {
@@ -30,7 +31,7 @@ export class EthereumModuleConfig {
     rpcUrl,
     schemaManagerContractAddress,
     serverUrl,
-    // chainNameOrId,
+    chainNameOrId,
     networkName,
     // config,
   }: EthereumModuleConfigOptions) {
@@ -40,7 +41,7 @@ export class EthereumModuleConfig {
     this.fileServerToken = fileServerToken
     this.schemaManagerContractAddress = schemaManagerContractAddress
     this.serverUrl = serverUrl
-    // this.chainNameOrId = chainNameOrId
+    this.chainNameOrId = chainNameOrId
     this.networkName = networkName
   }
 }

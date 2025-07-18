@@ -33,7 +33,7 @@ export class EthereumDidRegistrar implements DidRegistrar {
 
     const createEthrDidOptions: CreateEthrDidOptions = {
       identifier: options.address,
-      privateKey: options.secret.privateKey.toString(),
+      privateKey: options.secret.privateKey,
     }
     const ethrDid = ledgerService.createDidRegistryInstance(createEthrDidOptions)
 
@@ -326,7 +326,7 @@ export interface EthereumDidCreateOptions extends DidCreateOptions {
     endpoint?: string
   }
   secret: {
-    privateKey: Buffer
+    privateKey: string
   }
   address: string
 }

@@ -2,7 +2,7 @@ import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
 
 import { PolygonSchema } from '@ayanworks/polygon-schema-manager'
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
-import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
+import { CredoError, DidRepository, WalletError, injectable, Buffer, } from '@credo-ts/core'
 import { Resolver, ResolverRegistry } from 'did-resolver'
 import { SigningKey } from 'ethers'
 import { getResolver } from 'ethr-did-resolver'
@@ -78,7 +78,8 @@ export class EthereumLedgerService {
   private schemaManagerContractAddress: string | undefined
   private fileServerToken: string | undefined
   private fileServerUrl: string | undefined
-  // private chainNameOrId: string | undefined
+  private chainNameOrId: string | undefined
+  private networkName: string | undefined
   public resolver: Resolver
 
   public constructor(ethereumConfig: EthereumModuleConfig) {
@@ -86,13 +87,14 @@ export class EthereumLedgerService {
     this.didContractAddress = ethereumConfig.didContractAddress
     this.schemaManagerContractAddress = ethereumConfig.schemaManagerContractAddress
     this.fileServerToken = ethereumConfig.fileServerToken
-    // this.chainNameOrId = ethereumConfig.chainNameOrId
+    this.chainNameOrId = ethereumConfig.chainNameOrId
+    this.networkName = ethereumConfig.networkName
     this.resolver = new Resolver(
       getResolver({
         networks: [
           {
-            name: ethereumConfig.networkName,
-            // chainId: this.chainNameOrId,
+            name: this.networkName,
+            chainId: this.chainNameOrId,
             rpcUrl: this.rpcUrl,
             registry: this.didContractAddress,
           },
@@ -262,7 +264,7 @@ export class EthereumLedgerService {
       identifier: ethrDidCreateOptions.identifier,
       privateKey: ethrDidCreateOptions.privateKey,
       rpcUrl: this.rpcUrl,
-      // chainNameOrId: this.chainNameOrId,
+      chainNameOrId: this.networkName,
       registry: this.didContractAddress,
     })
   }
