@@ -9,7 +9,7 @@ import {
 } from '@credo-ts/core'
 import { computeAddress } from 'ethers'
 
-import { SECURITY_CONTEXT_SECP256k1_URL } from '../signature-suites/EcdsaSecp256k1RecoveryMethod2020'
+import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites/EcdsaSecp256k1RecoveryMethod2020'
 
 export const ethereumDidRegex = new RegExp(/^did:ethr(:[0-9a-fA-F])?:0x[0-9a-fA-F]{40}$/)
 
@@ -44,7 +44,7 @@ export function getSecp256k1DidDoc(did: string, key: Key, serviceEndpoint?: stri
   })
 
   const didDocumentBuilder = new DidDocumentBuilder(did)
-  didDocumentBuilder.addContext(SECURITY_CONTEXT_SECP256k1_URL).addVerificationMethod(verificationMethod)
+  didDocumentBuilder.addContext(SECURITY_CONTEXT_SECP256k1_RECOVERY_URL).addVerificationMethod(verificationMethod)
 
   if (serviceEndpoint) {
     const service = new DidDocumentService({
