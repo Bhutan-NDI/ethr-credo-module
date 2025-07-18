@@ -9,7 +9,6 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthrDID } from 'ethr-did'
-import type { EthereumDidCreateOptions } from '../dids'
 
 // interface SchemaRegistryConfig {
 //   didRegistrarContractAddress: string
@@ -19,6 +18,11 @@ import type { EthereumDidCreateOptions } from '../dids'
 //   schemaManagerContractAddress: string
 //   serverUrl: string
 // }
+
+export type CreateEthrDidOptions = {
+  identifier: string
+  privateKey: string
+}
 
 export type CreateDidOperationOptions = {
   operation: DidOperation.Create
@@ -250,13 +254,13 @@ export class EthereumLedgerService {
   // }
 
   // public createDidRegistryInstance(privateKey: SigningKey) {
-  public createDidRegistryInstance(DIDCreationOptions: EthereumDidCreateOptions) {
+  public createDidRegistryInstance(ethrDidCreateOptions: CreateEthrDidOptions) {
     if (!this.rpcUrl || !this.didContractAddress) {
       throw new CredoError('Ledger config not found')
     }
     return new EthrDID({
-      identifier: DIDCreationOptions.options.address,
-      privateKey: DIDCreationOptions.secret.privateKey.toString(),
+      identifier: ethrDidCreateOptions.identifier,
+      privateKey: ethrDidCreateOptions.privateKey,
       rpcUrl: this.rpcUrl,
       chainNameOrId: this.chainNameOrId,
       registry: this.didContractAddress,
