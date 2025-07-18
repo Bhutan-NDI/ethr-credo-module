@@ -6,9 +6,9 @@ import { _includesContext } from '@credo-ts/core/build/modules/vc/data-integrity
 
 const { jsonld } = vcLibraries
 
-export const SECURITY_CONTEXT_SECP256k1_URL = 'https://w3id.org/security/suites/secp256k1-2019/v1'
+export const SECURITY_CONTEXT_SECP256k1_RECOVERY_URL = 'https://w3id.org/security/suites/secp256k1recovery-2020/v2'
 
-type EcdsaSecp256k1Signature2019Options = Pick<
+type EcdsaSecp256k1RecoverySignature2020Options = Pick<
   JwsLinkedDataSignatureOptions,
   'key' | 'proof' | 'date' | 'useNativeCanonize' | 'LDKeyClass'
 >
@@ -16,8 +16,8 @@ type EcdsaSecp256k1Signature2019Options = Pick<
 /**
  * A secp256k1 signature suite for use with k251 key pairs
  */
-export class EcdsaSecp256k1Signature2019 extends JwsLinkedDataSignature {
-  public static CONTEXT_URL = SECURITY_CONTEXT_SECP256k1_URL
+export class EcdsaSecp256k1RecoverySignature2020 extends JwsLinkedDataSignature {
+  public static CONTEXT_URL = SECURITY_CONTEXT_SECP256k1_RECOVERY_URL
 
   /**
    * @param {object} options - Options hashmap.
@@ -46,18 +46,18 @@ export class EcdsaSecp256k1Signature2019 extends JwsLinkedDataSignature {
    * @param {boolean} [options.useNativeCanonize] - Whether to use a native
    *   canonize algorithm.
    */
-  public constructor(options: EcdsaSecp256k1Signature2019Options) {
+  public constructor(options: EcdsaSecp256k1RecoverySignature2020Options) {
     super({
-      type: 'EcdsaSecp256k1Signature2019',
+      type: 'EcdsaSecp256k1RecoverySignature2020',
       algorithm: 'EcDSA',
       LDKeyClass: options.LDKeyClass,
-      contextUrl: SECURITY_CONTEXT_SECP256k1_URL,
+      contextUrl: SECURITY_CONTEXT_SECP256k1_RECOVERY_URL,
       key: options.key,
       proof: options.proof,
       date: options.date,
       useNativeCanonize: options.useNativeCanonize,
     })
-    this.requiredKeyType = 'EcdsaSecp256k1VerificationKey2019'
+    this.requiredKeyType = 'EcdsaSecp256k1RecoveryMethod2020'
   }
 
   public async assertVerificationMethod(document: JsonLdDoc) {
@@ -72,11 +72,11 @@ export class EcdsaSecp256k1Signature2019 extends JwsLinkedDataSignature {
     if (!_isSecp256k12019Key(document)) {
       const verificationMethodType = jsonld.getValues(document, 'type')[0]
       throw new Error(
-        `Unsupported verification method type '${verificationMethodType}'. Verification method type MUST be 'EcdsaSecp256k1VerificationKey2019'.`
+        `Unsupported verification method type '${verificationMethodType}'. Verification method type MUST be 'EcdsaSecp256k1RecoveryMethod2020'.`
       )
     } else if (_isSecp256k12019Key(document) && !_includesSecp256k12019Context(document)) {
       throw new Error(
-        `For verification method type 'EcdsaSecp256k1VerificationKey2019' the '@context' MUST contain the context url "${SECURITY_CONTEXT_SECP256k1_URL}".`
+        `For verification method type 'EcdsaSecp256k1RecoveryMethod2020' the '@context' MUST contain the context url "${SECURITY_CONTEXT_SECP256k1_RECOVERY_URL}".`
       )
     }
 
@@ -119,7 +119,7 @@ function _includesCompatibleContext(options: { document: JsonLdDoc }) {
   // Handle the EcdsaSecp256k1Signature2019 / credentials/v1 collision
   const hasSecp256k1 = _includesContext({
     document: options.document,
-    contextUrl: SECURITY_CONTEXT_SECP256k1_URL,
+    contextUrl: SECURITY_CONTEXT_SECP256k1_RECOVERY_URL,
   })
   const hasCred = _includesContext({ document: options.document, contextUrl: CREDENTIALS_CONTEXT_V1_URL })
   const hasSecV2 = _includesContext({ document: options.document, contextUrl: SECURITY_CONTEXT_URL })
@@ -143,9 +143,9 @@ function _includesCompatibleContext(options: { document: JsonLdDoc }) {
 function _isSecp256k12019Key(verificationMethod: JsonLdDoc) {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - .hasValue is not part of the public API
-  return jsonld.hasValue(verificationMethod, 'type', 'EcdsaSecp256k1VerificationKey2019')
+  return jsonld.hasValue(verificationMethod, 'type', 'EcdsaSecp256k1RecoveryMethod2020')
 }
 
 function _includesSecp256k12019Context(document: JsonLdDoc) {
-  return _includesContext({ document, contextUrl: SECURITY_CONTEXT_SECP256k1_URL })
+  return _includesContext({ document, contextUrl: SECURITY_CONTEXT_SECP256k1_RECOVERY_URL })
 }

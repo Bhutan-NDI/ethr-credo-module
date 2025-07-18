@@ -1,8 +1,8 @@
 {
-  "name": "@ayanworks/credo-ethereum-w3c-module",
+  "name": "@ayanworks/credo-ethr-module",
   "main": "build/index",
   "types": "build/index",
-  "version": "0.0.2-alpha.11",
+  "version": "0.0.1",
   "files": [
     "build"
   ],
@@ -10,10 +10,10 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/ayanworks/afj-ethereum-w3c-module",
+  "homepage": "https://github.com/ayanworks/credo-ethr-module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ayanworks/afj-ethereum-w3c-module"
+    "url": "https://github.com/ayanworks/credo-ethr-module"
   },
   "scripts": {
     "build": "yarn run clean && yarn run compile",

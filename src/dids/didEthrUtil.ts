@@ -9,7 +9,7 @@ import {
 } from '@credo-ts/core'
 import { computeAddress } from 'ethers'
 
-import { SECURITY_CONTEXT_SECP256k1_URL } from '../signature-suites/EcdsaSecp256k1Signature2019'
+import { SECURITY_CONTEXT_SECP256k1_URL } from '../signature-suites/EcdsaSecp256k1RecoveryMethod2020'
 
 export const ethereumDidRegex = new RegExp(/^did:ethr(:[0-9a-fA-F])?:0x[0-9a-fA-F]{40}$/)
 
@@ -106,9 +106,9 @@ export function validateSpecCompliantPayload(didDocument: DidDocument): string |
   if (didDocument.service) {
     const isValidService = didDocument.service
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        didDocument?.service?.every((s: { serviceEndpoint: any; id: any; type: any }) => {
-          return s?.serviceEndpoint && s?.id && s?.type
-        })
+      didDocument?.service?.every((s: { serviceEndpoint: any; id: any; type: any }) => {
+        return s?.serviceEndpoint && s?.id && s?.type
+      })
       : true
 
     if (!isValidService) return 'Service is Invalid'

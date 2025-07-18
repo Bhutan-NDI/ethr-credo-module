@@ -9,22 +9,23 @@ import type {
   DidDeactivateResult,
   DidUpdateResult,
 } from '@credo-ts/core'
-import type { ResolverRegistry } from 'did-resolver'
-import type { EthereumModuleConfig } from 'src/EthereumModuleConfig'
 
-import { DidRepository, DidRecord, DidDocumentRole, JsonTransformer, DidDocument, CredoError } from '@credo-ts/core'
-import { Resolver } from 'did-resolver'
-import { SigningKey, Wallet as EtherWallet, JsonRpcProvider } from 'ethers'
-import { getResolver } from 'ethr-did-resolver'
+import {
+  DidRepository,
+  DidRecord,
+  DidDocumentRole,
+  JsonTransformer,
+  DidDocument,
+  CredoError,
+  KeyType,
+} from '@credo-ts/core'
+import { computeAddress } from 'ethers'
+import { EthrDID } from 'ethr-did'
 
 import { EthereumLedgerService } from '../ledger'
 
 export class EthereumDidRegistrar implements DidRegistrar {
-  public readonly supportedMethods = ['ethereum']
-  private resolver: Resolver
-  public constructor(private config: EthereumModuleConfig) {
-    this.resolver = new Resolver(getResolver({ options: config.config }) as ResolverRegistry)
-  }
+  public readonly supportedMethods = ['ethr']
 
   public async create(agentContext: AgentContext, options: EthereumDidCreateOptions): Promise<DidCreateResult> {
     const ledgerService = agentContext.dependencyManager.resolve(EthereumLedgerService)
@@ -32,43 +33,22 @@ export class EthereumDidRegistrar implements DidRegistrar {
 
     const privateKey = options.secret.privateKey
 
-    const wallet = new EtherWallet(new SigningKey(privateKey))
-    const provider = new JsonRpcProvider(ledgerService.rpcUrl)
-    const value = await provider.getBalance(wallet.address)
+    const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
 
-    if (Number(value) == 0) {
-      return {
-        didDocumentMetadata: {},
-        didRegistrationMetadata: {},
-        didState: {
-          state: 'failed',
-          reason: 'Insufficient balance in wallet',
-        },
-      }
-    }
+    const publicKeyHex = key.publicKey.toString('hex')
 
-    // const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
+    const address = computeAddress('0x' + publicKeyHex)
 
-    // const publicKeyHex = key.publicKey.toString('hex')
+    const ethrDid = new EthrDID({
+      identifier: address,
+      chainNameOrId: options.options.network,
+    })
 
-    // const did = buildDid(options.method, options.options.network, publicKeyHex)
-    // agentContext.config.logger.info(`Creating DID on ledger: ${did}`)
+    agentContext.config.logger.info(`Creating DID on ledger: ${ethrDid.did}`)
 
     try {
-      // const signingKey = await this.getSigningKey(agentContext.wallet, key.publicKeyBase58)
-
-      const didResult = ledgerService.createDidRegistryInstance(options)
-
       // DID Document
-      const resolvedDocument = await this.resolver.resolve(didResult.did)
-      // // Create did document
-      // const secpDidDoc = getSecp256k1DidDoc(did, key, options.options.endpoint)
-
-      // const response = await didRegistry.create(did, secpDidDoc)
-
-      // agentContext.config.logger.info(`Published did on ledger: ${did}`)
-
-      // const didDoc = response.didDoc
+      const resolvedDocument = await ledgerService.resolveDID(ethrDid.did)
 
       const didDocument = JsonTransformer.fromJSON(resolvedDocument.didDocument, DidDocument)
 
@@ -78,7 +58,7 @@ export class EthereumDidRegistrar implements DidRegistrar {
         didDocument,
       })
 
-      agentContext.config.logger.info(`Saving DID record to wallet: ${didResult.did} and did document: ${didDocument}`)
+      agentContext.config.logger.info(`Saving DID record to wallet: ${didDocument.id} and did document: ${didDocument}`)
 
       await didRepository.save(agentContext, didRecord)
 
@@ -321,10 +301,12 @@ export class EthereumDidRegistrar implements DidRegistrar {
   update(agentContext: AgentContext, options: DidUpdateOptions): Promise<DidUpdateResult> {
     throw new Error('Method not implemented.')
   }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/explicit-member-accessibility
   deactivate(agentContext: AgentContext, options: DidDeactivateOptions): Promise<DidDeactivateResult> {
     throw new Error('Method not implemented.')
   }
+
   private async getPublicKeyFromDid(agentContext: AgentContext, did: string) {
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
@@ -344,7 +326,7 @@ export class EthereumDidRegistrar implements DidRegistrar {
 }
 
 export interface EthereumDidCreateOptions extends DidCreateOptions {
-  method: 'ethereum'
+  method: 'ethr'
   did?: never
   options: {
     network: string
@@ -357,7 +339,7 @@ export interface EthereumDidCreateOptions extends DidCreateOptions {
 }
 
 export interface EthereumDidUpdateOptions extends DidUpdateOptions {
-  method: 'ethereum'
+  method: 'ethr'
   did: string
   didDocument: DidDocument
   secret?: {

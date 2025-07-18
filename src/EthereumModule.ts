@@ -1,17 +1,11 @@
 import type { EthereumModuleConfigOptions } from './EthereumModuleConfig'
 
-import {
-  SignatureSuiteToken,
-  type DependencyManager,
-  type Module,
-  VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
-  KeyType,
-} from '@credo-ts/core'
+import { SignatureSuiteToken, type DependencyManager, type Module, KeyType } from '@credo-ts/core'
 
 import { EthereumApi } from './EthereumApi'
 import { EthereumModuleConfig } from './EthereumModuleConfig'
 import { EthereumLedgerService } from './ledger'
-import { EcdsaSecp256k1Signature2019 } from './signature-suites'
+import { EcdsaSecp256k1RecoverySignature2020 } from './signature-suites'
 
 export class EthereumModule implements Module {
   public readonly config: EthereumModuleConfig
@@ -33,9 +27,9 @@ export class EthereumModule implements Module {
 
     // Signature suites.
     dependencyManager.registerInstance(SignatureSuiteToken, {
-      suiteClass: EcdsaSecp256k1Signature2019,
-      proofType: 'EcdsaSecp256k1Signature2019',
-      verificationMethodTypes: [VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019],
+      suiteClass: EcdsaSecp256k1RecoverySignature2020,
+      proofType: 'EcdsaSecp256k1RecoverySignature2020',
+      verificationMethodTypes: ['EcdsaSecp256k1RecoveryMethod2020'],
       keyTypes: [KeyType.K256],
     })
   }

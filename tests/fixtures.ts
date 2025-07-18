@@ -180,35 +180,27 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
 export const EthereumDIDFixtures = {
   VALID_DID_DOCUMENT: {
     didDocument: {
-      '@context': ['https://w3id.org/did/v1', 'https://w3id.org/security/suites/secp256k1-2019/v1'],
-      id: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b',
+      '@context': [
+        'https://www.w3.org/ns/did/v1',
+        'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+        'https://w3id.org/security/v3-unstable',
+      ],
+      id: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
       verificationMethod: [
         {
-          id: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1',
-          type: 'EcdsaSecp256k1VerificationKey2019',
-          controller: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b',
-          publicKeyBase58: '29rkwHiVCjyhXk9FWhepUrHpEyurUSCFHh4aoDqb1adj8',
+          id: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller',
+          type: 'EcdsaSecp256k1RecoveryMethod2020',
+          controller: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
+          blockchainAccountId: 'eip155:11155111:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
         },
       ],
-      service: [
-        {
-          id: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#linked-domain',
-          serviceEndpoint: 'https://dev-agent.credebl.id',
-          type: 'LinkedDomains',
-        },
-      ],
-      authentication: ['did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1'],
-      assertionMethod: ['did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1'],
-      keyAgreement: ['did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1'],
-      capabilityInvocation: ['did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1'],
-      capabilityDelegation: ['did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1'],
+      authentication: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],
+      assertionMethod: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],
     },
-    didDocumentMetadata: {
-      linkedResourceMetadata: [],
-    },
+    didDocumentMetadata: {},
     didResolutionMetadata: {
       contentType: 'application/did+ld+json',
-      resolutionTime: 1730803801926,
+      resolutionTime: 1752825466390,
       servedFromCache: true,
     },
   },

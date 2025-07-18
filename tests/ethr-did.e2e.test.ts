@@ -3,7 +3,7 @@ import type { EthereumDidCreateOptions } from '../src/dids'
 import type { EncryptedMessage } from '@credo-ts/core'
 
 import { AskarModule } from '@credo-ts/askar'
-import { Agent, ConsoleLogger, DidsModule, KeyType, LogLevel, TypedArrayEncoder, utils } from '@credo-ts/core'
+import { Agent, ConsoleLogger, DidsModule, LogLevel, TypedArrayEncoder, utils } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Subject } from 'rxjs'
@@ -19,10 +19,10 @@ const logger = new ConsoleLogger(LogLevel.info)
 
 export type SubjectMessage = { message: EncryptedMessage; replySubject?: Subject<SubjectMessage> }
 
-const did = 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b'
+const did = 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2'
 
 describe('Ethereum Module did resolver', () => {
-  let aliceAgent: Agent<{ askar: AskarModule; ethereum: EthereumModule; dids: DidsModule }>
+  let aliceAgent: Agent<{ askar: AskarModule; ethr: EthereumModule; dids: DidsModule }>
   let aliceWalletId: string
   let aliceWalletKey: string
 
@@ -36,7 +36,6 @@ describe('Ethereum Module did resolver', () => {
       'rxjs:alice': aliceMessages,
     }
 
-    console.log('aliceWalletId-----', aliceWalletId)
     // Initialize alice
     aliceAgent = new Agent({
       config: {
@@ -48,8 +47,11 @@ describe('Ethereum Module did resolver', () => {
       dependencies: agentDependencies,
       modules: {
         askar: new AskarModule({ ariesAskar }),
-        // Add required modules
-        ethereum: new EthereumModule({
+        dids: new DidsModule({
+          resolvers: [new EthereumDidResolver()],
+          registrars: [new EthereumDidRegistrar()],
+        }),
+        ethr: new EthereumModule({
           config: {
             networks: [
               {
@@ -61,42 +63,25 @@ describe('Ethereum Module did resolver', () => {
             ],
           },
         }),
-        dids: new DidsModule({
-          resolvers: [new EthereumDidResolver()],
-          registrars: [
-            new EthereumDidRegistrar({
-              config: {
-                networks: [
-                  {
-                    name: 'sepolia',
-                    chainId: 11155111,
-                    rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
-                    registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
-                  },
-                ],
-              },
-            }),
-          ],
-        }),
       },
     })
 
-    console.log('Initialized aliceAgent-----', JSON.stringify(aliceAgent))
+    // console.log('Initialized aliceAgent-----', JSON.stringify(aliceAgent))
 
     aliceAgent.registerOutboundTransport(new SubjectOutboundTransport(subjectMap))
     aliceAgent.registerInboundTransport(new SubjectInboundTransport(aliceMessages))
     await aliceAgent.initialize()
 
-    await aliceAgent.dids.import({
-      did,
-      overwrite: true,
-      privateKeys: [
-        {
-          keyType: KeyType.K256,
-          privateKey: TypedArrayEncoder.fromHex('5a4a2c79f4bceb4976dde41897b2607e01e6b74a42bc854a7a20059cfa99a095'),
-        },
-      ],
-    })
+    // await aliceAgent.dids.import({
+    //   did,
+    //   overwrite: true,
+    //   privateKeys: [
+    //     {
+    //       keyType: KeyType.K256,
+    //       privateKey: TypedArrayEncoder.fromHex('5a4a2c79f4bceb4976dde41897b2607e01e6b74a42bc854a7a20059cfa99a095'),
+    //     },
+    //   ],
+    // })
   })
 
   afterAll(async () => {
@@ -112,27 +97,25 @@ describe('Ethereum Module did resolver', () => {
     }
   })
 
-  it('create and resolve a did:ethereum did', async () => {
-    console.log('aliceAgent-----', JSON.stringify(aliceAgent))
+  it('create and resolve a did:ethr did', async () => {
     const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
-      method: 'ethereum',
+      method: 'ethr',
       options: {
         network: 'sepolia',
-        endpoint: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
       },
       secret: {
         privateKey: TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6'),
       },
     })
 
-    console.log('createdDid--------', createdDid)
+    console.log('createdDid--------', JSON.stringify(createdDid))
   })
 
   describe('EthereumDidResolver', () => {
     it('should resolve a ethereum did when valid did is passed', async () => {
       const resolvedDIDDoc = await aliceAgent.dids.resolve(did)
 
-      console.log('resolvedDIDDoc--------', resolvedDIDDoc)
+      console.log('resolvedDIDDoc--------', JSON.stringify(resolvedDIDDoc))
       expect(resolvedDIDDoc.didDocument?.context).toEqual(
         EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument['@context']
       )
@@ -149,7 +132,7 @@ describe('Ethereum Module did resolver', () => {
     })
 
     it("should fail with 'Invalid DID' message when invalid ethereum did is passed", async () => {
-      const did = 'did:ethereum:testnet:0x525D4605f4EE59e1149987F59668D4f272359093'
+      const did = 'did:ethr:testnet:0x525D4605f4EE59e1149987F59668D4f272359093'
 
       const result = await aliceAgent.dids.resolve(did)
 
@@ -158,7 +141,7 @@ describe('Ethereum Module did resolver', () => {
     })
 
     it('should fail after resolution invalid ethereum did is passed', async () => {
-      const did = 'did:ethereum:testnet:0x525D4605f4EE59e1149987F59668D4f272359093'
+      const did = 'did:ethr:testnet:0x525D4605f4EE59e1149987F59668D4f272359093'
 
       const result = await aliceAgent.dids.resolve(did)
 

@@ -14,7 +14,6 @@ import {
   W3cPresentation,
   TypedArrayEncoder,
   W3cJsonLdVerifiableCredential,
-  VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
   SignatureSuiteRegistry,
   InjectionSymbols,
   ConsoleLogger,
@@ -32,8 +31,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { registerAriesAskar } from '@hyperledger/aries-askar-shared'
 
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
-import { buildDid } from '../src/dids/didEthereumUtil'
-import { EcdsaSecp256k1Signature2019 } from '../src/signature-suites'
+import { EcdsaSecp256k1RecoverySignature2020 } from '../src/signature-suites'
 
 import { EcdsaSecp256k1Signature2019Fixtures } from './fixtures'
 import { getAgentConfig, getAgentContext } from './utils'
@@ -46,9 +44,9 @@ const { purposes } = jsonldSignatures
 
 const signatureSuiteRegistry = new SignatureSuiteRegistry([
   {
-    suiteClass: EcdsaSecp256k1Signature2019,
-    proofType: 'EcdsaSecp256k1Signature2019',
-    verificationMethodTypes: [VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019],
+    suiteClass: EcdsaSecp256k1RecoverySignature2020,
+    proofType: 'EcdsaSecp256k1RecoverySignature2020',
+    verificationMethodTypes: ['EcdsaSecp256k1RecoveryMethod2020'],
     keyTypes: [KeyType.K256],
   },
 ])
@@ -57,7 +55,7 @@ describe('Secp256k1 W3cCredentialService', () => {
   let wallet: AskarWallet
   let agentContext: AgentContext
   let w3cJsonLdCredentialService: W3cJsonLdCredentialService
-  const privateKey = TypedArrayEncoder.fromHex('5a4a2c79f4bceb4976dde41897b2607e01e6b74a42bc854a7a20059cfa99a095')
+  const privateKey = TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6')
 
   beforeAll(async () => {
     const agentConfig = getAgentConfig('EcdsaSecp256k1e2eTest')
@@ -96,17 +94,18 @@ describe('Secp256k1 W3cCredentialService', () => {
 
   describe('Utility methods', () => {
     describe('getKeyTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
-        const keyTypes = w3cJsonLdCredentialService.getKeyTypesByProofType('EcdsaSecp256k1Signature2019')
+      it('should return the correct key types for EcdsaSecp256k1RecoverySignature2020 proof type', async () => {
+        const keyTypes = w3cJsonLdCredentialService.getKeyTypesByProofType('EcdsaSecp256k1RecoverySignature2020')
         expect(keyTypes).toEqual([KeyType.K256])
       })
     })
 
     describe('getVerificationMethodTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
-        const verificationMethodTypes =
-          w3cJsonLdCredentialService.getVerificationMethodTypesByProofType('EcdsaSecp256k1Signature2019')
-        expect(verificationMethodTypes).toEqual([VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019])
+      it('should return the correct key types for EcdsaSecp256k1RecoverySignature2020 proof type', async () => {
+        const verificationMethodTypes = w3cJsonLdCredentialService.getVerificationMethodTypesByProofType(
+          'EcdsaSecp256k1RecoverySignature2020'
+        )
+        expect(verificationMethodTypes).toEqual(['EcdsaSecp256k1RecoveryMethod2020'])
       })
     })
   })
@@ -116,12 +115,10 @@ describe('Secp256k1 W3cCredentialService', () => {
     let verificationMethod: string
 
     beforeAll(async () => {
-      const key = await wallet.createKey({ keyType: KeyType.K256, privateKey })
+      await wallet.createKey({ keyType: KeyType.K256, privateKey })
 
-      const publicKeyHex = key.publicKey.toString('hex')
-
-      issuerDid = buildDid('ethereum', 'testnet', publicKeyHex)
-      verificationMethod = `${issuerDid}#key-1`
+      issuerDid = 'did:ethr:sepolia:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF49'
+      verificationMethod = `${issuerDid}#controller`
     })
 
     describe('signCredential', () => {

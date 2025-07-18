@@ -1,1 +1,1 @@
-export * from './EcdsaSecp256k1Signature2019'
+export * from './EcdsaSecp256k1RecoveryMethod2020'

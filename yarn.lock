@@ -44,6 +44,20 @@
   dependencies:
     static-eval "2.0.2"
 
+"@ayanworks/polygon-did-registry-contract@3.0.0":
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/@ayanworks/polygon-did-registry-contract/-/polygon-did-registry-contract-3.0.0.tgz#52b18768b887e933d44a9713b33dc2efbb1dcf53"
+  integrity sha512-RnW31nkDIMG1YzuOycxGGrJFpgTcpBwS/UZR6/wMPrsJBKBEN28k2CZImwXkbgaknyTfL7xe1u3C8NxfDvhI4Q==
+
+"@ayanworks/polygon-did-resolver@1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@ayanworks/polygon-did-resolver/-/polygon-did-resolver-1.0.0.tgz#4d267004a509fad9a75bb18c6f449f6c51e1f198"
+  integrity sha512-mzYh3XNQ4HJ0GakP1QD7UOW8PjMAhdtu/TXzeOqMtHLhWktFMQcgJuqNMNxMGbJFdIe12qFJROlle6p1BjF01g==
+  dependencies:
+    "@ayanworks/polygon-did-registry-contract" "3.0.0"
+    did-resolver "^4.1.0"
+    ethers "^5.1.0"
+
 "@ayanworks/polygon-schema-manager@1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@ayanworks/polygon-schema-manager/-/polygon-schema-manager-1.0.0.tgz#5f71320d93e874477906df15be1aacc32906d6aa"
