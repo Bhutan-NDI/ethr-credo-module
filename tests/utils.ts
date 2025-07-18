@@ -56,13 +56,17 @@ export function getAgentConfig(
   extraConfig: Partial<InitConfig> = {}
 ): AgentConfig & { walletConfig: WalletConfig } {
   const { config, dependencies } = getAgentOptions(name, extraConfig, {
-    ethereum: new EthereumModule({
-      rpcUrl: 'https://rpc-amoy.ethereum.technology',
-      didContractAddress: '0xC1c392DC1073a86821B4ae37f1F0faCDcFFf45bF',
-      fileServerToken:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6IjdmYjRmN2I3LWQ5ZWUtNDYxOC04OTE4LWZiMmIzYzY1M2EyYiJ9.x-kHeTVqX4w19ibSAspCYgIL-JFVss8yZ0CT21QVRYM',
-      schemaManagerContractAddress: '0x289c7Bd4C7d38cC54bff370d6f9f01b74Df51b11',
-      serverUrl: 'https://51e1-103-97-166-226.ngrok-free.app',
+    ethr: new EthereumModule({
+      config: {
+        networks: [
+          {
+            name: 'sepolia',
+            chainId: 11155111,
+            rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
+            registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
+          },
+        ],
+      },
     }),
     dids: new DidsModule({
       resolvers: [new EthereumDidResolver()],

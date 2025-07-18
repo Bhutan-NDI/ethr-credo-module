@@ -1,6 +1,5 @@
 import type { DidDocument } from '@credo-ts/core'
 
-import { EthereumDID } from '@ayanworks/ethereum-did-registrar'
 import {
   DidDocumentBuilder,
   DidDocumentService,
@@ -8,12 +7,12 @@ import {
   VerificationMethod,
 } from '@credo-ts/core'
 
-import { SECURITY_CONTEXT_SECP256k1_URL } from '../signature-suites'
+import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites'
 
-export const generateSecp256k1KeyPair = async () => {
-  const { privateKey, publicKeyBase58, address } = await EthereumDID.createKeyPair('testnet')
-  return { privateKey, publicKeyBase58, address }
-}
+// export const generateSecp256k1KeyPair = async () => {
+//   const { privateKey, publicKeyBase58, address } = await EthereumDID.createKeyPair('testnet')
+//   return { privateKey, publicKeyBase58, address }
+// }
 
 export function getSecp256k1DidDocWithPublicKey(
   did: string,
@@ -28,7 +27,7 @@ export function getSecp256k1DidDocWithPublicKey(
   })
 
   const didDocumentBuilder = new DidDocumentBuilder(did)
-  didDocumentBuilder.addContext(SECURITY_CONTEXT_SECP256k1_URL).addVerificationMethod(verificationMethod)
+  didDocumentBuilder.addContext(SECURITY_CONTEXT_SECP256k1_RECOVERY_URL).addVerificationMethod(verificationMethod)
 
   if (serviceEndpoint) {
     const service = new DidDocumentService({

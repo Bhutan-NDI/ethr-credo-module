@@ -1,8 +1,15 @@
 import { CREDENTIALS_CONTEXT_V1_URL } from '@credo-ts/core'
 
+import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../src/signature-suites'
+
 export const EcdsaSecp256k1Signature2019Fixtures = {
   TEST_LD_DOCUMENT: {
-    '@context': [CREDENTIALS_CONTEXT_V1_URL, 'https://w3id.org/citizenship/v1'],
+    '@context': [
+      CREDENTIALS_CONTEXT_V1_URL,
+      'https://w3id.org/citizenship/v1',
+      'https://w3id.org/security/v2',
+      SECURITY_CONTEXT_SECP256k1_RECOVERY_URL,
+    ],
     id: 'https://issuer.oidp.uscis.gov/credentials/83627465',
     type: ['VerifiableCredential', 'PermanentResidentCard'],
     issuer: '',

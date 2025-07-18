@@ -1,4 +1,4 @@
-import type { CreateSchemaOperationOptions, DidOperationOptions } from './ledger'
+// import type { CreateSchemaOperationOptions, DidOperationOptions } from './ledger'
 
 import { AgentContext, injectable } from '@credo-ts/core'
 
@@ -24,13 +24,13 @@ export class EthereumApi {
     return schemaDetails
   }
 
-  public async estimateFeeForDidOperation(options: DidOperationOptions) {
-    const estimatedFee = await this.ledgerService.estimateFeeForDidOperation(this.agentContext, options)
-    return estimatedFee
-  }
+  // public async estimateFeeForDidOperation(options: DidOperationOptions) {
+  //   const estimatedFee = await this.ledgerService.estimateFeeForDidOperation(this.agentContext, options)
+  //   return estimatedFee
+  // }
 
-  public async estimateFeeForSchemaOperation(options: CreateSchemaOperationOptions) {
-    const estimatedFee = await this.ledgerService.estimateFeeForSchemaOperation(this.agentContext, options)
-    return estimatedFee
-  }
+  // public async estimateFeeForSchemaOperation(options: CreateSchemaOperationOptions) {
+  //   const estimatedFee = await this.ledgerService.estimateFeeForSchemaOperation(this.agentContext, options)
+  //   return estimatedFee
+  // }
 }

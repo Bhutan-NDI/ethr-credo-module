@@ -1,12 +1,10 @@
 import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
-import type { EthereumDidCreateOptions } from 'src/dids'
 
 import { PolygonSchema } from '@ayanworks/polygon-schema-manager'
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
 import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { SigningKey } from 'ethers'
-import { EthrDID } from 'ethr-did'
 import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
@@ -233,18 +231,18 @@ export class EthereumLedgerService {
   // }
 
   // public createDidRegistryInstance(privateKey: SigningKey) {
-  public createDidRegistryInstance(DIDCreationOptions: EthereumDidCreateOptions) {
-    if (!this.rpcUrl || !this.didContractAddress) {
-      throw new CredoError('Ledger config not found')
-    }
-    return new EthrDID({
-      identifier: DIDCreationOptions.options.address,
-      privateKey: DIDCreationOptions.secret.privateKey.toString(),
-      rpcUrl: this.rpcUrl,
-      chainNameOrId: this.chainNameOrId,
-      registry: this.didContractAddress,
-    })
-  }
+  // public createDidRegistryInstance(DIDCreationOptions: EthereumDidCreateOptions) {
+  //   if (!this.rpcUrl || !this.didContractAddress) {
+  //     throw new CredoError('Ledger config not found')
+  //   }
+  //   return new EthrDID({
+  //     identifier: DIDCreationOptions.options.address,
+  //     privateKey: DIDCreationOptions.secret.privateKey.toString(),
+  //     rpcUrl: this.rpcUrl,
+  //     chainNameOrId: this.chainNameOrId,
+  //     registry: this.didContractAddress,
+  //   })
+  // }
 
   private createSchemaRegistryInstance(signingKey: SigningKey) {
     if (
