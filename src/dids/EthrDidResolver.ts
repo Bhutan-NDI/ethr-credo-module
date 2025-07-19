@@ -24,8 +24,15 @@ export class EthereumDidResolver implements DidResolver {
     try {
       const { didDocument, didDocumentMetadata, didResolutionMetadata } = await ethereumLedgerService.resolveDID(did)
 
+      const didDoc = JsonTransformer.fromJSON(didDocument, DidDocument)
+
+      didDoc.context = [
+        // 'https://www.w3.org/ns/did/v1',
+        // 'https://w3id.org/security/suites/secp256k1-2019/v1',
+        'https://w3id.org/security/v3-unstable',
+      ]
       return {
-        didDocument: JsonTransformer.fromJSON(didDocument, DidDocument),
+        didDocument: didDoc,
         didDocumentMetadata,
         didResolutionMetadata,
       }

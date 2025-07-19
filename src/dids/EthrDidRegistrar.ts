@@ -37,10 +37,10 @@ export class EthereumDidRegistrar implements DidRegistrar {
 
     const publicKeyHex = key.publicKey.toString('hex')
 
-    const address = computeAddress('0x' + publicKeyHex)
+    // const address = computeAddress('0x' + publicKeyHex)
 
     const ethrDid = new EthrDID({
-      identifier: address,
+      identifier: '0x' + publicKeyHex,
       chainNameOrId: options.options.network,
     })
 
@@ -49,6 +49,10 @@ export class EthereumDidRegistrar implements DidRegistrar {
     try {
       // DID Document
       const resolvedDocument = await ledgerService.resolveDID(ethrDid.did)
+
+      // update the context
+
+
 
       const didDocument = JsonTransformer.fromJSON(resolvedDocument.didDocument, DidDocument)
 

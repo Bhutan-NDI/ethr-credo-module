@@ -1,15 +1,8 @@
-import { CREDENTIALS_CONTEXT_V1_URL } from '@credo-ts/core'
-
-import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../src/signature-suites'
+import { CREDENTIALS_CONTEXT_V1_URL, SECURITY_CONTEXT_URL } from '@credo-ts/core'
 
 export const EcdsaSecp256k1Signature2019Fixtures = {
   TEST_LD_DOCUMENT: {
-    '@context': [
-      CREDENTIALS_CONTEXT_V1_URL,
-      'https://w3id.org/citizenship/v1',
-      'https://w3id.org/security/v2',
-      SECURITY_CONTEXT_SECP256k1_RECOVERY_URL,
-    ],
+    '@context': [CREDENTIALS_CONTEXT_V1_URL, 'https://w3id.org/citizenship/v1'],
     id: 'https://issuer.oidp.uscis.gov/credentials/83627465',
     type: ['VerifiableCredential', 'PermanentResidentCard'],
     issuer: '',
@@ -37,7 +30,7 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
     context: [CREDENTIALS_CONTEXT_V1_URL, 'https://w3id.org/citizenship/v1'],
     id: 'https://issuer.oidp.uscis.gov/credentials/83627465',
     type: ['VerifiableCredential', 'PermanentResidentCard'],
-    issuer: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b',
+    issuer: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
     identifier: '83627465',
     name: 'Permanent Resident Card',
     description: 'Government of Example Permanent Resident Card.',
@@ -58,11 +51,12 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
       birthDate: '1958-07-17',
     },
     proof: {
-      verificationMethod: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1',
+      verificationMethod:
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
       type: 'EcdsaSecp256k1Signature2019',
-      created: '2024-11-06T05:54:10Z',
+      created: '2025-07-19T11:43:25Z',
       proofPurpose: 'assertionMethod',
-      jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..uFngoIS-sGdN88scCqrU4xalBWz9_auKO6Vt0PKWoUJ4g-xOMoY1FIHjeLm2czjYXEy9nZlqQIUkH_4IaorE3A',
+      jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZaeOVUUYdvhBsw0wTXcSlyO2BCzKUER0cKMg2JMzJjsHi28-e1agPmrpfrt-SSvOMDASl2GO7ymnftv6bol9mg',
     },
   },
   TEST_LD_DOCUMENT_BAD_SIGNED: {
@@ -105,7 +99,7 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
         context: [CREDENTIALS_CONTEXT_V1_URL, 'https://w3id.org/citizenship/v1'],
         id: 'https://issuer.oidp.uscis.gov/credentials/83627465',
         type: ['VerifiableCredential', 'PermanentResidentCard'],
-        issuer: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b',
+        issuer: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
         identifier: '83627465',
         name: 'Permanent Resident Card',
         description: 'Government of Example Permanent Resident Card.',
@@ -126,11 +120,12 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
           birthDate: '1958-07-17',
         },
         proof: {
-          verificationMethod: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1',
+          verificationMethod:
+            'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
           type: 'EcdsaSecp256k1Signature2019',
-          created: '2024-11-06T06:03:13Z',
+          created: '2025-07-19T11:43:25Z',
           proofPurpose: 'assertionMethod',
-          jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..7BVlhFVaucFfnq7ZFBYwvMA_SbMAf7HOQ3U70UuiDmkglV5mgyKafDNxxSvM0mIUKLm8VEda7c7yAyPLTGIhDQ',
+          jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZaeOVUUYdvhBsw0wTXcSlyO2BCzKUER0cKMg2JMzJjsHi28-e1agPmrpfrt-SSvOMDASl2GO7ymnftv6bol9mg',
         },
       },
     ],
@@ -143,7 +138,7 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
         '@context': ['https://www.w3.org/2018/credentials/v1', 'https://w3id.org/citizenship/v1'],
         id: 'https://issuer.oidp.uscis.gov/credentials/83627465',
         type: ['VerifiableCredential', 'PermanentResidentCard'],
-        issuer: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b',
+        issuer: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
         identifier: '83627465',
         name: 'Permanent Resident Card',
         description: 'Government of Example Permanent Resident Card.',
@@ -164,22 +159,24 @@ export const EcdsaSecp256k1Signature2019Fixtures = {
           id: 'did:example:b34ca6cd37bbf23',
         },
         proof: {
-          verificationMethod: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1',
+          verificationMethod:
+            'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
           type: 'EcdsaSecp256k1Signature2019',
-          created: '2024-11-06T06:03:13Z',
+          created: '2025-07-19T11:43:25Z',
           proofPurpose: 'assertionMethod',
-          jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..7BVlhFVaucFfnq7ZFBYwvMA_SbMAf7HOQ3U70UuiDmkglV5mgyKafDNxxSvM0mIUKLm8VEda7c7yAyPLTGIhDQ',
+          jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZaeOVUUYdvhBsw0wTXcSlyO2BCzKUER0cKMg2JMzJjsHi28-e1agPmrpfrt-SSvOMDASl2GO7ymnftv6bol9mg',
         },
       },
     ],
     proof: {
-      verificationMethod: 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b#key-1',
+      verificationMethod:
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
       type: 'EcdsaSecp256k1Signature2019',
-      created: '2024-11-06T06:08:18Z',
+      created: '2025-07-19T11:52:54Z',
       proofPurpose: 'authentication',
       challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
       domain: 'issuer.example.com',
-      jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..4EMiMJG-JS4I5NeuAGUQ_nNlp9XwaRKPHMKLSEykARI36fXtsJlmHXeScf8oSdF8SBJDX5ddhQ8oLA9qQMI2ig',
+      jws: 'eyJhbGciOiJFY0RTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..rYyJXMggRRA9I31QUuTniV-JsL73XZ0s159YoCyPJCMFVAgvefh3zW_FFF4ad_vwQ0pAQjxQE2c4o730N7dflQ',
     },
   },
 }
@@ -192,23 +189,29 @@ export const EthereumDIDFixtures = {
         'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
         'https://w3id.org/security/v3-unstable',
       ],
-      id: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
+      id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
       verificationMethod: [
         {
-          id: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller',
+          id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controller',
           type: 'EcdsaSecp256k1RecoveryMethod2020',
-          controller: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
-          blockchainAccountId: 'eip155:11155111:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
+          controller: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
+          blockchainAccountId: 'eip155:11155111:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF49',
+        },
+        {
+          id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
+          type: 'EcdsaSecp256k1VerificationKey2019',
+          controller: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
+          publicKeyHex: '022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
         },
       ],
-      authentication: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],
-      assertionMethod: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],
-    },
-    didDocumentMetadata: {},
-    didResolutionMetadata: {
-      contentType: 'application/did+ld+json',
-      resolutionTime: 1752825466390,
-      servedFromCache: true,
+      authentication: [
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controller',
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
+      ],
+      assertionMethod: [
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controller',
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
+      ],
     },
   },
 }

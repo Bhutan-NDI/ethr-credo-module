@@ -11,6 +11,7 @@ import {
   InjectionSymbols,
   LogLevel,
   utils,
+  W3cCredentialsModule,
 } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 

@@ -22,6 +22,7 @@ import {
   CredoError,
   CacheModuleConfig,
   InMemoryLruCache,
+  VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
 } from '@credo-ts/core'
 import { W3cCredentialsModuleConfig } from '@credo-ts/core/build/modules/vc/W3cCredentialsModuleConfig'
 import { W3cJsonLdCredentialService } from '@credo-ts/core/build/modules/vc/data-integrity/W3cJsonLdCredentialService'
@@ -32,10 +33,11 @@ import { registerAriesAskar } from '@hyperledger/aries-askar-shared'
 
 import { EthereumModuleConfig } from '../src/EthereumModuleConfig'
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
-import { EcdsaSecp256k1RecoverySignature2020 } from '../src/signature-suites'
+import { EcdsaSecp256k1RecoverySignature2020, EcdsaSecp256k1Signature2019 } from '../src/signature-suites'
 
 import { EcdsaSecp256k1Signature2019Fixtures } from './fixtures'
 import { getAgentConfig, getAgentContext } from './utils'
+import { defaultDocumentLoader } from '@credo-ts/core/build/modules/vc/data-integrity/libraries/documentLoader'
 
 export const askarModuleConfig = new AskarModuleConfig({ ariesAskar })
 registerAriesAskar({ askar: askarModuleConfig.ariesAskar })
@@ -45,11 +47,17 @@ const { purposes } = jsonldSignatures
 
 const signatureSuiteRegistry = new SignatureSuiteRegistry([
   {
-    suiteClass: EcdsaSecp256k1RecoverySignature2020,
-    proofType: 'EcdsaSecp256k1RecoverySignature2020',
-    verificationMethodTypes: ['EcdsaSecp256k1RecoveryMethod2020'],
+    suiteClass: EcdsaSecp256k1Signature2019,
+    proofType: 'EcdsaSecp256k1Signature2019',
+    verificationMethodTypes: [VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019],
     keyTypes: [KeyType.K256],
   },
+  // {
+  //   suiteClass: EcdsaSecp256k1RecoverySignature2020,
+  //   proofType: 'EcdsaSecp256k1RecoverySignature2020',
+  //   verificationMethodTypes: ['EcdsaSecp256k1RecoveryMethod2020'],
+  //   keyTypes: [KeyType.K256],
+  // },
 ])
 
 describe('Secp256k1 W3cCredentialService', () => {
@@ -100,7 +108,7 @@ describe('Secp256k1 W3cCredentialService', () => {
     })
     w3cJsonLdCredentialService = new W3cJsonLdCredentialService(
       signatureSuiteRegistry,
-      new W3cCredentialsModuleConfig()
+      new W3cCredentialsModuleConfig({})
     )
   })
 
@@ -110,18 +118,17 @@ describe('Secp256k1 W3cCredentialService', () => {
 
   describe('Utility methods', () => {
     describe('getKeyTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1RecoverySignature2020 proof type', async () => {
-        const keyTypes = w3cJsonLdCredentialService.getKeyTypesByProofType('EcdsaSecp256k1RecoverySignature2020')
+      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
+        const keyTypes = w3cJsonLdCredentialService.getKeyTypesByProofType('EcdsaSecp256k1Signature2019')
         expect(keyTypes).toEqual([KeyType.K256])
       })
     })
 
     describe('getVerificationMethodTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1RecoverySignature2020 proof type', async () => {
-        const verificationMethodTypes = w3cJsonLdCredentialService.getVerificationMethodTypesByProofType(
-          'EcdsaSecp256k1RecoverySignature2020'
-        )
-        expect(verificationMethodTypes).toEqual(['EcdsaSecp256k1RecoveryMethod2020'])
+      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
+        const verificationMethodTypes =
+          w3cJsonLdCredentialService.getVerificationMethodTypesByProofType('EcdsaSecp256k1Signature2019')
+        expect(verificationMethodTypes).toEqual([VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019])
       })
     })
   })
@@ -133,8 +140,8 @@ describe('Secp256k1 W3cCredentialService', () => {
     beforeAll(async () => {
       await wallet.createKey({ keyType: KeyType.K256, privateKey })
 
-      issuerDid = 'did:ethr:sepolia:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF49'
-      verificationMethod = `${issuerDid}#controller`
+      issuerDid = 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
+      verificationMethod = `${issuerDid}#controllerKey`
     })
 
     describe('signCredential', () => {
@@ -147,7 +154,7 @@ describe('Secp256k1 W3cCredentialService', () => {
         const vc = await w3cJsonLdCredentialService.signCredential(agentContext, {
           format: ClaimFormat.LdpVc,
           credential,
-          proofType: 'EcdsaSecp256k1RecoverySignature2020',
+          proofType: 'EcdsaSecp256k1Signature2019',
           verificationMethod: verificationMethod,
         })
 
@@ -171,129 +178,129 @@ describe('Secp256k1 W3cCredentialService', () => {
             format: ClaimFormat.LdpVc,
             credential,
             proofType: 'EcdsaSecp256k1Signature2019',
-            verificationMethod: 'did:ethereum:testnet:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF47#key-1',
+            verificationMethod: 'did:ethr:testnet:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF47#key-1',
           })
         }).rejects.toThrowError(CredoError)
       })
     })
 
-    // describe('verifyCredential', () => {
-    //   it('should verify the credential successfully', async () => {
-    //     const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, {
-    //       credential: JsonTransformer.fromJSON(
-    //         EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_SIGNED,
-    //         W3cJsonLdVerifiableCredential
-    //       ),
-    //       proofPurpose: new purposes.AssertionProofPurpose(),
-    //     })
+    describe('verifyCredential', () => {
+      it('should verify the credential successfully', async () => {
+        const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, {
+          credential: JsonTransformer.fromJSON(
+            EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_SIGNED,
+            W3cJsonLdVerifiableCredential
+          ),
+          proofPurpose: new purposes.AssertionProofPurpose(),
+        })
 
-    //     expect(result.isValid).toEqual(true)
-    //   })
+        expect(result.isValid).toEqual(true)
+      })
 
-    //   it('should fail because of invalid signature', async () => {
-    //     const vc = JsonTransformer.fromJSON(
-    //       EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_BAD_SIGNED,
-    //       W3cJsonLdVerifiableCredential
-    //     )
-    //     const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, { credential: vc })
+      it('should fail because of invalid signature', async () => {
+        const vc = JsonTransformer.fromJSON(
+          EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_BAD_SIGNED,
+          W3cJsonLdVerifiableCredential
+        )
+        const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, { credential: vc })
 
-    //     expect(result).toEqual({
-    //       isValid: false,
-    //       error: expect.any(Error),
-    //       validations: {
-    //         vcJs: {
-    //           error: expect.any(Error),
-    //           isValid: false,
-    //           results: expect.any(Array),
-    //         },
-    //       },
-    //     })
-    //   })
-    // })
+        expect(result).toEqual({
+          isValid: false,
+          error: expect.any(Error),
+          validations: {
+            vcJs: {
+              error: expect.any(Error),
+              isValid: false,
+              results: expect.any(Array),
+            },
+          },
+        })
+      })
+    })
 
-    // describe('signPresentation', () => {
-    //   it('should successfully create a presentation from single verifiable credential', async () => {
-    //     const presentation = JsonTransformer.fromJSON(
-    //       EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT,
-    //       W3cPresentation
-    //     )
+    describe('signPresentation', () => {
+      it('should successfully create a presentation from single verifiable credential', async () => {
+        const presentation = JsonTransformer.fromJSON(
+          EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT,
+          W3cPresentation
+        )
 
-    //     const purpose = new CredentialIssuancePurpose({
-    //       controller: {
-    //         id: verificationMethod,
-    //       },
-    //       date: new Date().toISOString(),
-    //     })
+        const purpose = new CredentialIssuancePurpose({
+          controller: {
+            id: verificationMethod,
+          },
+          date: new Date().toISOString(),
+        })
 
-    //     const verifiablePresentation = await w3cJsonLdCredentialService.signPresentation(agentContext, {
-    //       format: ClaimFormat.LdpVp,
-    //       presentation: presentation,
-    //       proofPurpose: purpose,
-    //       proofType: 'EcdsaSecp256k1Signature2019',
-    //       challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-    //       domain: 'issuer.example.com',
-    //       verificationMethod: verificationMethod,
-    //     })
+        const verifiablePresentation = await w3cJsonLdCredentialService.signPresentation(agentContext, {
+          format: ClaimFormat.LdpVp,
+          presentation: presentation,
+          proofPurpose: purpose,
+          proofType: 'EcdsaSecp256k1Signature2019',
+          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
+          domain: 'issuer.example.com',
+          verificationMethod: verificationMethod,
+        })
 
-    //     expect(verifiablePresentation).toBeInstanceOf(W3cJsonLdVerifiablePresentation)
-    //   })
-    // })
+        expect(verifiablePresentation).toBeInstanceOf(W3cJsonLdVerifiablePresentation)
+      })
+    })
 
-    // describe('verifyPresentation', () => {
-    //   it('should successfully verify a presentation containing a single verifiable credential', async () => {
-    //     const vp = JsonTransformer.fromJSON(
-    //       EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
-    //       W3cJsonLdVerifiablePresentation
-    //     )
+    describe('verifyPresentation', () => {
+      it('should successfully verify a presentation containing a single verifiable credential', async () => {
+        const vp = JsonTransformer.fromJSON(
+          EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
+          W3cJsonLdVerifiablePresentation
+        )
 
-    //     const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
-    //       presentation: vp,
-    //       challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-    //     })
+        const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
+          presentation: vp,
+          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
+        })
 
-    //     expect(result).toEqual({
-    //       isValid: true,
-    //       error: undefined,
-    //       validations: {
-    //         vcJs: {
-    //           isValid: true,
-    //           presentationResult: expect.any(Object),
-    //           credentialResults: expect.any(Array),
-    //         },
-    //       },
-    //     })
-    //   })
+        expect(result).toEqual({
+          isValid: true,
+          error: undefined,
+          validations: {
+            vcJs: {
+              isValid: true,
+              presentationResult: expect.any(Object),
+              credentialResults: expect.any(Array),
+            },
+          },
+        })
+      })
 
-    //   it('should fail when presentation signature is not valid', async () => {
-    //     const vp = JsonTransformer.fromJSON(
-    //       {
-    //         ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
-    //         proof: {
-    //           ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof,
-    //           jws: EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof.jws + 'a',
-    //         },
-    //       },
-    //       W3cJsonLdVerifiablePresentation
-    //     )
+      it('should fail when presentation signature is not valid', async () => {
+        const vp = JsonTransformer.fromJSON(
+          {
+            ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
+            proof: {
+              ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof,
+              jws: EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof.jws + 'a',
+            },
+          },
+          W3cJsonLdVerifiablePresentation
+        )
 
-    //     const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
-    //       presentation: vp,
-    //       challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-    //     })
+        const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
+          presentation: vp,
+          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
+        })
 
-    //     expect(result).toEqual({
-    //       isValid: false,
-    //       error: expect.any(Error),
-    //       validations: {
-    //         vcJs: {
-    //           isValid: false,
-    //           credentialResults: expect.any(Array),
-    //           presentationResult: expect.any(Object),
-    //           error: expect.any(Error),
-    //         },
-    //       },
-    //     })
-    //   })
-    // })
+        expect(result).toEqual({
+          isValid: false,
+          error: expect.any(Error),
+          validations: {
+            vcJs: {
+              isValid: false,
+              credentialResults: expect.any(Array),
+              presentationResult: expect.any(Object),
+              error: expect.any(Error),
+            },
+          },
+        })
+      })
+    })
   })
 })

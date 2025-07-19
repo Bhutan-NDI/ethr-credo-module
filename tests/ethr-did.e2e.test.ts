@@ -19,7 +19,7 @@ const logger = new ConsoleLogger(LogLevel.info)
 
 export type SubjectMessage = { message: EncryptedMessage; replySubject?: Subject<SubjectMessage> }
 
-const did = 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2'
+const did = 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
 
 describe('Ethereum Module did resolver', () => {
   let aliceAgent: Agent<{ askar: AskarModule; ethr: EthereumModule; dids: DidsModule }>
