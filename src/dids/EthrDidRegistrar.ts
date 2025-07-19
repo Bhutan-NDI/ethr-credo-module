@@ -1,4 +1,3 @@
-import type { CreateEthrDidOptions } from '../ledger'
 import type {
   AgentContext,
   DidCreateOptions,
@@ -11,35 +10,46 @@ import type {
   DidUpdateResult,
 } from '@credo-ts/core'
 
-import { DidRepository, DidRecord, DidDocumentRole, JsonTransformer, DidDocument, CredoError, KeyType } from '@credo-ts/core'
+import {
+  DidRepository,
+  DidRecord,
+  DidDocumentRole,
+  JsonTransformer,
+  DidDocument,
+  CredoError,
+  KeyType,
+} from '@credo-ts/core'
+import { computeAddress } from 'ethers'
 
 import { EthereumLedgerService } from '../ledger'
-import { computeAddress } from 'ethers'
 
 export class EthereumDidRegistrar implements DidRegistrar {
   public readonly supportedMethods = ['ethr']
 
-  public async create(agentContext: AgentContext, options: EthereumDidCreateOptions): Promise<DidCreateResult> {
+  public async create(
+    agentContext: AgentContext,
+    ethrDidCreateOptions: EthereumDidCreateOptions
+  ): Promise<DidCreateResult> {
     const ledgerService = agentContext.dependencyManager.resolve(EthereumLedgerService)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
-    // const privateKey = options.secret.privateKey
+    const privateKey = ethrDidCreateOptions.secret.privateKey
 
-    // const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
+    const key = await agentContext.wallet.createKey({ keyType: KeyType.K256, privateKey })
 
-    // const publicKeyHex = key.publicKey.toString('hex')
+    const publicKeyHex = key.publicKey.toString('hex')
 
-    // const address = computeAddress('0x' + publicKeyHex)
-
-    const createEthrDidOptions: CreateEthrDidOptions = {
-      identifier: options.address,
-      privateKey: options.secret.privateKey,
-    }
-    const ethrDid = ledgerService.createDidRegistryInstance(createEthrDidOptions)
-
-    agentContext.config.logger.info(`Creating DID on ledger: ${ethrDid.did}`)
+    const address = computeAddress('0x' + publicKeyHex)
 
     try {
+      const ethrDid = await ledgerService.createDidRegistryInstance({ identifier: address, privateKey })
+      await ethrDid.setAttribute(
+        'did/pub/Secp256k1/veriKey/base58',
+        key.publicKeyBase58,
+        ethrDidCreateOptions.options.publicKeyExpiresIn
+      )
+
+      agentContext.config.logger.info(`Published public key attribute on ledger: ${ethrDid.did}`)
       // DID Document
       const resolvedDocument = await ledgerService.resolveDID(ethrDid.did)
 
@@ -324,11 +334,11 @@ export interface EthereumDidCreateOptions extends DidCreateOptions {
   options: {
     network: string
     endpoint?: string
+    publicKeyExpiresIn?: number
   }
   secret: {
-    privateKey: string
+    privateKey: Buffer
   }
-  address: string
 }
 
 export interface EthereumDidUpdateOptions extends DidUpdateOptions {

@@ -1,14 +1,15 @@
-import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
+import type { AgentContext, DidDocument, Wallet, Buffer } from '@credo-ts/core'
+import type { ResolverRegistry } from 'did-resolver'
 
 import { PolygonSchema } from '@ayanworks/polygon-schema-manager'
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
-import { CredoError, DidRepository, WalletError, injectable, Buffer, } from '@credo-ts/core'
-import { Resolver, ResolverRegistry } from 'did-resolver'
-import { SigningKey } from 'ethers'
+import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
+import { Resolver } from 'did-resolver'
+import { ethers, SigningKey } from 'ethers'
+import { EthrDID } from 'ethr-did'
 import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
-import { EthrDID } from 'ethr-did'
 
 // interface SchemaRegistryConfig {
 //   didRegistrarContractAddress: string
@@ -18,12 +19,6 @@ import { EthrDID } from 'ethr-did'
 //   schemaManagerContractAddress: string
 //   serverUrl: string
 // }
-
-export type CreateEthrDidOptions = {
-  identifier: string
-  privateKey: string
-}
-
 export type CreateDidOperationOptions = {
   operation: DidOperation.Create
   serviceEndpoint?: string
@@ -69,6 +64,11 @@ export type CreateSchemaOperationOptions = {
 
 export enum SchemaOperation {
   CreateSchema = 'createSchema',
+}
+
+export type CreateEthrDidOptions = {
+  identifier: string
+  privateKey: Buffer
 }
 
 @injectable()
@@ -260,10 +260,11 @@ export class EthereumLedgerService {
     if (!this.rpcUrl || !this.didContractAddress) {
       throw new CredoError('Ledger config not found')
     }
+    const provider = new ethers.JsonRpcProvider(this.rpcUrl)
     return new EthrDID({
       identifier: ethrDidCreateOptions.identifier,
-      privateKey: ethrDidCreateOptions.privateKey,
-      rpcUrl: this.rpcUrl,
+      privateKey: ethrDidCreateOptions.privateKey.toString(),
+      provider,
       chainNameOrId: this.networkName,
       registry: this.didContractAddress,
     })

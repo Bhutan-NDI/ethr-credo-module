@@ -200,6 +200,12 @@ export const EthereumDIDFixtures = {
           controller: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
           blockchainAccountId: 'eip155:11155111:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
         },
+        {
+          id: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#delegate-1',
+          type: 'secp256k1',
+          controller: 'did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2',
+          publicKeyBase58: '2Ev4tR1s9PR88R7R7hXkDYRQXjWZkPW2biWUL3ZLHEiTUXsc6MTzRTM7RMXk6pmoWo5uJ2DGW4x61cRY4sBrTGyA',
+        },
       ],
       authentication: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],
       assertionMethod: ['did:ethr:sepolia:0x69A085FC9a75E03a05A02e5bD47b46567a1eBEd2#controller'],

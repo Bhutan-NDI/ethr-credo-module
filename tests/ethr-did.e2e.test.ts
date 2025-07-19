@@ -95,19 +95,21 @@ describe('Ethereum Module did resolver', () => {
     }
   })
 
-  it('create and resolve a did:ethr did', async () => {
-    const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
-      method: 'ethr',
-      options: {
-        network: 'sepolia',
-      },
-      secret: {
-        privateKey: '0x3cb8bb0812e09919a449c18ef26508dae0f63840d1c1e2842c61d0267fd2ba0d',
-      },
-      address: '0x13DcCbA628313e5B2D441742786bA9434C4B7919',
+  describe('EthereumDidRegistrar', () => {
+    it('create and resolve a did:ethr did', async () => {
+      const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
+        method: 'ethr',
+        options: {
+          network: 'sepolia',
+        },
+        secret: {
+          privateKey: TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6'),
+        },
+      })
+      console.log('createdDid--------', JSON.stringify(createdDid))
+      expect(createdDid.didDocumentMetadata).toEqual(EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocumentMetadata)
+      expect(createdDid.didState.state).toEqual('finished')
     })
-
-    console.log('createdDid--------', JSON.stringify(createdDid))
   })
 
   describe('EthereumDidResolver', () => {
