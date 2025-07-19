@@ -263,7 +263,7 @@ export class EthereumLedgerService {
     const provider = new ethers.JsonRpcProvider(this.rpcUrl)
     return new EthrDID({
       identifier: ethrDidCreateOptions.identifier,
-      privateKey: ethrDidCreateOptions.privateKey.toString(),
+      privateKey: ethrDidCreateOptions.privateKey.toString('hex'),
       provider,
       chainNameOrId: this.networkName,
       registry: this.didContractAddress,
