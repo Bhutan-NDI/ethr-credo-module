@@ -1,6 +1,5 @@
 import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
 
-import { PolygonSchema } from '@ayanworks/polygon-schema-manager'
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
 import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
@@ -9,14 +8,16 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 
-// interface SchemaRegistryConfig {
-//   didRegistrarContractAddress: string
-//   rpcUrl: string
-//   fileServerToken: string
-//   privateKey: string
-//   schemaManagerContractAddress: string
-//   serverUrl: string
-// }
+import { PolygonSchema } from 'src/schema/schemaManager'
+
+interface SchemaRegistryConfig {
+  didRegistrarContractAddress: string
+  rpcUrl: string
+  fileServerToken: string
+  privateKey: string
+  schemaManagerContractAddress: string
+  serverUrl: string
+}
 
 export type CreateDidOperationOptions = {
   operation: DidOperation.Create
@@ -72,7 +73,6 @@ export class EthereumLedgerService {
   private schemaManagerContractAddress: string | undefined
   private fileServerToken: string | undefined
   private fileServerUrl: string | undefined
-  private chainNameOrId: string | undefined
   public readonly resolver: Resolver
   public constructor({ config }: EthereumModuleConfig) {
     this.resolver = new Resolver(getResolver(config))
@@ -82,13 +82,13 @@ export class EthereumLedgerService {
     agentContext: AgentContext,
     { did, schemaName, schema }: { did: string; schemaName: string; schema: object }
   ) {
-    const publicKeyBase58 = await this.getPublicKeyFromDid(agentContext, did)
+    const publicKeyBase = await this.getPublicKeyFromDid(agentContext, did)
 
-    if (!publicKeyBase58) {
+    if (!publicKeyBase) {
       throw new CredoError('Public Key not found in wallet')
     }
 
-    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase58)
+    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase)
 
     const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
 
@@ -180,70 +180,6 @@ export class EthereumLedgerService {
   //   }
   // }
 
-  // public async estimateFeeForSchemaOperation(agentContext: AgentContext, options: SchemaOperationOptions) {
-  //   const keyPair = await generateSecp256k1KeyPair()
-
-  //   const schemaRegistry = this.createSchemaRegistryInstance(new SigningKey(keyPair.privateKey))
-
-  //   const { operation } = options
-
-  //   const testResourceBody = {
-  //     resourceURI:
-  //       'did:ethereum:testnet:0x13cd23928Ae515b86592C630f56C138aE4c7B79a/resources/398cee0a-efac-4643-9f4c-74c48c72a14b',
-  //     resourceCollectionId: '55dbc8bf-fba3-4117-855c-1e0dc1d3bb47',
-  //     resourceId: '398cee0a-efac-4643-9f4c-74c48c72a14b',
-  //     resourceName: 'Eventbrite1 Logo',
-  //     resourceType: 'W3C-schema',
-  //     mediaType: 'image/svg+xml',
-  //     created: '2022-11-17T08:10:36Z',
-  //     checksum: 'a95380f460e63ad939541a57aecbfd795fcd37c6d78ee86c885340e33a91b559',
-  //     previousVersionId: null,
-  //     nextVersionId: null,
-  //   }
-
-  //   if (operation === SchemaOperation.CreateSchema) {
-  //     agentContext.config.logger.info(`Getting estimated fee for operation: ${operation} `)
-  //     const schemaEstimatedFee = await schemaRegistry.estimateTxFee(SchemaOperation.CreateSchema, [
-  //       keyPair.address,
-  //       utils.uuid(),
-  //       JSON.stringify(testResourceBody),
-  //     ])
-
-  //     const resourceEstimatedFee = await this.estimateFeeForDidOperation(agentContext, {
-  //       operation: DidOperation.AddResource,
-  //       resourceId: utils.uuid(),
-  //       resource: testResourceBody,
-  //       did: options.did,
-  //     })
-
-  //     let feeParameters = {}
-
-  //     if (schemaEstimatedFee && resourceEstimatedFee) {
-  //       feeParameters = {
-  //         estimatedTotalTxFee: Number(schemaEstimatedFee.transactionFee) + Number(resourceEstimatedFee.transactionFee),
-  //         estimatedSchemaTxFee: schemaEstimatedFee,
-  //         estimatedResourceTxFee: resourceEstimatedFee,
-  //       }
-  //     }
-
-  //     return feeParameters
-  //   }
-  // }
-
-  // public createDidRegistryInstance(privateKey: SigningKey) {
-  // public createDidRegistryInstance(DIDCreationOptions: EthereumDidCreateOptions) {
-  //   if (!this.rpcUrl || !this.didContractAddress) {
-  //     throw new CredoError('Ledger config not found')
-  //   }
-  //   return new EthrDID({
-  //     identifier: DIDCreationOptions.options.address,
-  //     privateKey: DIDCreationOptions.secret.privateKey.toString(),
-  //     rpcUrl: this.rpcUrl,
-  //     chainNameOrId: this.chainNameOrId,
-  //     registry: this.didContractAddress,
-  //   })
-  // }
-
   private createSchemaRegistryInstance(signingKey: SigningKey) {
     if (
       !this.rpcUrl ||
@@ -265,12 +201,12 @@ export class EthereumLedgerService {
     })
   }
 
-  private async getSigningKey(wallet: Wallet, publicKeyBase58: string): Promise<SigningKey> {
+  private async getSigningKey(wallet: Wallet, publicKey: string): Promise<SigningKey> {
     if (!(wallet instanceof AskarWallet) && !(wallet instanceof AskarProfileWallet)) {
       throw new CredoError('Incorrect wallet type: Ethereum Module currently only supports Askar wallet')
     }
 
-    const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKeyBase58 }))
+    const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKey }))
 
     if (!keyEntry) {
       throw new WalletError('Key not found in wallet')
@@ -295,24 +231,28 @@ export class EthereumLedgerService {
       throw new CredoError('VerificationMethod not found cannot get public key')
     }
 
-    const publicKeyBase58 = didRecord.didDocument.verificationMethod[0].publicKeyBase58
+    // eslint-disable-next-line no-prototype-builtins
+    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.hasOwnProperty('publicKeyHex'))
+    const publicKey = keyObj ? keyObj.publicKeyHex : undefined
 
-    return publicKeyBase58
+    // const publicKeyBase58 = didRecord.didDocument.verificationMethod[0].publicKeyBase58
+
+    return publicKey
   }
 
-  // public updateModuleConfig({
-  //   didRegistrarContractAddress,
-  //   fileServerToken,
-  //   rpcUrl,
-  //   schemaManagerContractAddress,
-  //   serverUrl,
-  // }: SchemaRegistryConfig) {
-  //   this.rpcUrl = rpcUrl
-  //   this.didContractAddress = didRegistrarContractAddress
-  //   this.schemaManagerContractAddress = schemaManagerContractAddress
-  //   this.fileServerToken = fileServerToken
-  //   this.fileServerUrl = serverUrl
-  // }
+  public updateModuleConfig({
+    didRegistrarContractAddress,
+    fileServerToken,
+    rpcUrl,
+    schemaManagerContractAddress,
+    serverUrl,
+  }: SchemaRegistryConfig) {
+    this.rpcUrl = rpcUrl
+    this.didContractAddress = didRegistrarContractAddress
+    this.schemaManagerContractAddress = schemaManagerContractAddress
+    this.fileServerToken = fileServerToken
+    this.fileServerUrl = serverUrl
+  }
 
   public async resolveDID(did: string) {
     return await this.resolver.resolve(did)

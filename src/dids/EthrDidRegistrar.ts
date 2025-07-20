@@ -19,7 +19,6 @@ import {
   CredoError,
   KeyType,
 } from '@credo-ts/core'
-import { computeAddress } from 'ethers'
 import { EthrDID } from 'ethr-did'
 
 import { EthereumLedgerService } from '../ledger'
@@ -51,8 +50,6 @@ export class EthereumDidRegistrar implements DidRegistrar {
       const resolvedDocument = await ledgerService.resolveDID(ethrDid.did)
 
       // update the context
-
-
 
       const didDocument = JsonTransformer.fromJSON(resolvedDocument.didDocument, DidDocument)
 
