@@ -19,7 +19,7 @@ const logger = new ConsoleLogger(LogLevel.info)
 
 export type SubjectMessage = { message: EncryptedMessage; replySubject?: Subject<SubjectMessage> }
 
-const did = 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
+let did: string
 
 describe('Ethereum Module did resolver', () => {
   let aliceAgent: Agent<{ askar: AskarModule; ethr: EthereumModule; dids: DidsModule }>
@@ -98,6 +98,7 @@ describe('Ethereum Module did resolver', () => {
   })
 
   it('create and resolve a did:ethr did', async () => {
+    console.log('calling aliceAgent.dids.create-----')
     const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
       method: 'ethr',
       options: {
@@ -107,12 +108,16 @@ describe('Ethereum Module did resolver', () => {
         privateKey: TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6'),
       },
     })
+    did =
+      createdDid.didState.did || 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
 
+    console.log('set createdDid as did----', JSON.stringify(did))
     console.log('createdDid--------', JSON.stringify(createdDid))
   })
 
   describe('EthereumDidResolver', () => {
     it('should resolve a ethereum did when valid did is passed', async () => {
+      console.log('did--------', did)
       const resolvedDIDDoc = await aliceAgent.dids.resolve(did)
 
       console.log('resolvedDIDDoc--------', JSON.stringify(resolvedDIDDoc))

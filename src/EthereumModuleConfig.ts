@@ -5,38 +5,30 @@ import type { ConfigurationOptions } from 'ethr-did-resolver/lib/configuration'
  */
 export interface EthereumModuleConfigOptions {
   config: ConfigurationOptions
-  // rpcUrl?: string
-  // didContractAddress?: string
-  fileServerToken?: string
-  schemaManagerContractAddress?: string
-  serverUrl?: string
-  // chainNameOrId?: string
+  rpcUrl: string
+  fileServerToken: string
+  schemaManagerContractAddress: string
+  serverUrl: string
 }
 
 export class EthereumModuleConfig {
-  // public readonly rpcUrl: string | undefined
-  // public readonly didContractAddress: string | undefined
-  public readonly fileServerToken: string | undefined
-  public readonly schemaManagerContractAddress: string | undefined
-  public readonly serverUrl: string | undefined
-  // public readonly chainNameOrId: string | undefined
+  public rpcUrl: string
+  public fileServerToken: string
+  public schemaManagerContractAddress: string
+  public serverUrl: string
   public readonly config: ConfigurationOptions
 
   public constructor({
-    // didContractAddress,
     fileServerToken,
-    // rpcUrl,
+    rpcUrl,
     schemaManagerContractAddress,
     serverUrl,
-    // chainNameOrId,
     config,
   }: EthereumModuleConfigOptions) {
     this.config = config
-    // this.rpcUrl = rpcUrl
-    // this.didContractAddress = didContractAddress
+    this.rpcUrl = rpcUrl
     this.fileServerToken = fileServerToken
     this.schemaManagerContractAddress = schemaManagerContractAddress
     this.serverUrl = serverUrl
-    // this.chainNameOrId = chainNameOrId
   }
 }

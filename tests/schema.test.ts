@@ -1,7 +1,8 @@
+import type { EthereumDidCreateOptions } from '../src/dids'
 import type { EncryptedMessage } from '@credo-ts/core'
 
 import { AskarModule } from '@credo-ts/askar'
-import { Agent, ConsoleLogger, DidsModule, KeyType, LogLevel, TypedArrayEncoder, utils } from '@credo-ts/core'
+import { Agent, ConsoleLogger, DidsModule, LogLevel, TypedArrayEncoder, utils } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Subject } from 'rxjs'
@@ -16,9 +17,9 @@ const logger = new ConsoleLogger(LogLevel.info)
 
 export type SubjectMessage = { message: EncryptedMessage; replySubject?: Subject<SubjectMessage> }
 
-const privateKey = TypedArrayEncoder.fromHex('5a4a2c79f4bceb4976dde41897b2607e01e6b74a42bc854a7a20059cfa99a095')
-
-const testNetdid = 'did:ethereum:testnet:0x138d2231e4362fc0e028576Fb2DF56904bd59C1b'
+const privateKey = TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6')
+let did: string
+let schemaId: string
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const testSchema = {
@@ -85,57 +86,50 @@ describe('Ethereum Module did resolver', () => {
     faberWalletId = utils.uuid()
     faberWalletKey = utils.uuid()
 
-    const aliceMessages = new Subject<SubjectMessage>()
+    const faberMessages = new Subject<SubjectMessage>()
 
     const subjectMap = {
-      'rxjs:alice': aliceMessages,
+      'rxjs:faber': faberMessages,
     }
 
-    // const response = await EthereumDID.createKeyPair('testnet')
-
-    // console.log('response', response)
-
-    // Initialize alice
+    // Initialize faber
     faberAgent = new Agent({
       config: {
-        label: 'alice',
-        endpoints: ['rxjs:alice'],
+        label: 'faber',
+        endpoints: ['rxjs:faber'],
         walletConfig: { id: faberWalletId, key: faberWalletKey },
         logger,
       },
       dependencies: agentDependencies,
       modules: {
         askar: new AskarModule({ ariesAskar }),
-        // Add required modules
-        ethereum: new EthereumModule({
-          rpcUrl: 'https://rpc-amoy.ethereum.technology',
-          didContractAddress: '0xC1c392DC1073a86821B4ae37f1F0faCDcFFf45bF',
-          fileServerToken:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6IjdmYjRmN2I3LWQ5ZWUtNDYxOC04OTE4LWZiMmIzYzY1M2EyYiJ9.x-kHeTVqX4w19ibSAspCYgIL-JFVss8yZ0CT21QVRYM',
-          schemaManagerContractAddress: '0x289c7Bd4C7d38cC54bff370d6f9f01b74Df51b11',
-          serverUrl: 'https://51e1-103-97-166-226.ngrok-free.app',
-        }),
         dids: new DidsModule({
           resolvers: [new EthereumDidResolver()],
-          // registrars: [new EthereumDidRegistrar()],
+          registrars: [new EthereumDidRegistrar()],
+        }),
+        ethereum: new EthereumModule({
+          config: {
+            networks: [
+              {
+                name: 'sepolia',
+                chainId: 11155111,
+                rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
+                registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
+              },
+            ],
+          },
+          schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
+          serverUrl: 'http://localhost:4000/',
+          fileServerToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
+          rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
         }),
       },
     })
 
     faberAgent.registerOutboundTransport(new SubjectOutboundTransport(subjectMap))
-    faberAgent.registerInboundTransport(new SubjectInboundTransport(aliceMessages))
+    faberAgent.registerInboundTransport(new SubjectInboundTransport(faberMessages))
     await faberAgent.initialize()
-
-    await faberAgent.dids.import({
-      did: testNetdid,
-      overwrite: true,
-      privateKeys: [
-        {
-          keyType: KeyType.K256,
-          privateKey,
-        },
-      ],
-    })
   })
 
   afterAll(async () => {
@@ -152,42 +146,38 @@ describe('Ethereum Module did resolver', () => {
   })
 
   describe('EthereumSchema', () => {
-    // it('should create a ethereum keypair', async () => {
-    //   const response = await EthereumDID.createKeyPair('testnet')
-    //   console.log('response', response)
-    // })
+    it('EthereumSchema ---- create and resolve a did:ethr did', async () => {
+      const createdDid = await faberAgent.dids.create<EthereumDidCreateOptions>({
+        method: 'ethr',
+        options: {
+          network: 'sepolia',
+        },
+        secret: {
+          privateKey,
+        },
+      })
+      did =
+        createdDid.didState.did ||
+        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
+    })
 
-    // it('create a ethereum did', async () => {
-    //   const did = await faberAgent.dids.create<EthereumDidCreateOptions>({
-    //     method: 'ethereum',
-    //     options: {
-    //       network: 'testnet',
-    //       endpoint: 'https://example.com',
-    //     },
-    //     secret: {
-    //       privateKey,
-    //     },
-    //   })
-    //   console.log('did', did)
-    // })
+    it('should create w3c schema', async () => {
+      const response = await faberAgent.modules.ethereum.createSchema({
+        did,
+        schemaName: 'TestCollegeSchema',
+        schema: testSchema,
+      })
+      schemaId = response.schemaId
+      console.log('EthereumSchema --- Created Schema Response', JSON.stringify(response))
+    })
 
-    // it('should create w3c schema', async () => {
-    //   const response = await faberAgent.modules.ethereum.createSchema({
-    //     did: testNetdid,
-    //     schemaName: 'TestCollegeSchema',
-    //     schema: testSchema,
-    //   })
-    //   console.log('Created Schema Response', response)
-    // })
-
-    // it('should resolve a schema by Id', async () => {
-    //   const schemaId = 'd0781b8c-46ee-4620-8d9b-740d537513f6'
-    //   const schema = await faberAgent.modules.ethereum.getSchemaById(testNetdid, schemaId)
-    //   console.log('Get schema By id', schema)
-    // })
+    it('should resolve a schema by Id', async () => {
+      const schema = await faberAgent.modules.ethereum.getSchemaById(did, schemaId)
+      console.log('EthereumSchema --- Get schema By id', schema)
+    })
 
     it('should resolve a ethereum did with metadata', async () => {
-      const resolvedDIDDoc = await faberAgent.dids.resolve(testNetdid)
+      const resolvedDIDDoc = await faberAgent.dids.resolve(did)
       faberAgent.config.logger.info('resolvedDIDDoc', resolvedDIDDoc)
     })
   })

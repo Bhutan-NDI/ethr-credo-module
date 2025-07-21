@@ -185,8 +185,8 @@ export const EthereumDIDFixtures = {
   VALID_DID_DOCUMENT: {
     didDocument: {
       '@context': [
-        'https://www.w3.org/ns/did/v1',
-        'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+        // 'https://www.w3.org/ns/did/v1',
+        // 'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
         'https://w3id.org/security/v3-unstable',
       ],
       id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',

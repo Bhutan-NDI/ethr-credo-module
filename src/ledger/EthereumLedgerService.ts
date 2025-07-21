@@ -1,4 +1,4 @@
-import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
+import type { AgentContext, DidDocument, VerificationMethod, Wallet } from '@credo-ts/core'
 
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
 import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
@@ -7,17 +7,17 @@ import { SigningKey } from 'ethers'
 import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
+import { EthrSchema } from '../schema/schemaManager'
+import { convertHexToBase58, getPreferredKey } from '../utils/utils'
 
-import { PolygonSchema } from 'src/schema/schemaManager'
-
-interface SchemaRegistryConfig {
-  didRegistrarContractAddress: string
-  rpcUrl: string
-  fileServerToken: string
-  privateKey: string
-  schemaManagerContractAddress: string
-  serverUrl: string
-}
+// interface SchemaRegistryConfig {
+//   didRegistrarContractAddress: string
+//   rpcUrl: string
+//   fileServerToken: string
+//   privateKey: string
+//   schemaManagerContractAddress: string
+//   serverUrl: string
+// }
 
 export type CreateDidOperationOptions = {
   operation: DidOperation.Create
@@ -68,33 +68,41 @@ export enum SchemaOperation {
 
 @injectable()
 export class EthereumLedgerService {
-  public rpcUrl: string | undefined
-  private didContractAddress: string | undefined
-  private schemaManagerContractAddress: string | undefined
-  private fileServerToken: string | undefined
-  private fileServerUrl: string | undefined
+  public readonly rpcUrl: string
+  private readonly schemaManagerContractAddress: string
+  private readonly fileServerToken: string
+  private readonly fileServerUrl: string
   public readonly resolver: Resolver
-  public constructor({ config }: EthereumModuleConfig) {
-    this.resolver = new Resolver(getResolver(config))
+  public constructor(config: EthereumModuleConfig) {
+    // console.log('************constructor EthereumLedgerService constructor', JSON.stringify(config))
+    this.resolver = new Resolver(getResolver(config.config))
+    this.rpcUrl = config.rpcUrl
+    this.schemaManagerContractAddress = config.schemaManagerContractAddress
+    this.fileServerToken = config.fileServerToken
+    this.fileServerUrl = config.serverUrl
   }
 
   public async createSchema(
     agentContext: AgentContext,
     { did, schemaName, schema }: { did: string; schemaName: string; schema: object }
   ) {
-    const publicKeyBase = await this.getPublicKeyFromDid(agentContext, did)
+    console.log('inside create schema')
+    const keyResult = await this.getPublicKeyAndAddressFromDid(agentContext, did)
 
-    if (!publicKeyBase) {
+    // console.log('result of getPublicKeyAndAddressFromDid createSchema------', JSON.stringify(keyResult))
+
+    if (!keyResult.publicKeyBase58) {
       throw new CredoError('Public Key not found in wallet')
     }
 
-    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase)
+    const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
 
     const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
 
     agentContext.config.logger.info(`Creating schema on ledger: ${did}`)
 
-    const response = await schemaRegistry.createSchema(did, schemaName, schema)
+    const response = await schemaRegistry.createSchema(did, schemaName, schema, keyResult.blockchainAccountId)
+    console.log('Creating schema on ledger response', JSON.stringify(response))
     if (!response) {
       agentContext.config.logger.error(`Schema creation failed for did: ${did} and schema: ${schema}`)
       throw new CredoError(`Schema creation failed for did: ${did} and schema: ${schema}`)
@@ -106,13 +114,13 @@ export class EthereumLedgerService {
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
 
-    const publicKeyBase58 = await this.getPublicKeyFromDid(agentContext, did)
+    const publicKeyBase58 = await this.getPublicKeyAndAddressFromDid(agentContext, did)
 
     if (!publicKeyBase58) {
       throw new CredoError('Public Key not found in wallet')
     }
 
-    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase58)
+    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase58.publicKeyBase58)
 
     const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
 
@@ -181,19 +189,20 @@ export class EthereumLedgerService {
   // }
 
   private createSchemaRegistryInstance(signingKey: SigningKey) {
-    if (
-      !this.rpcUrl ||
-      !this.schemaManagerContractAddress ||
-      !this.fileServerToken ||
-      !this.fileServerUrl ||
-      !this.didContractAddress
-    ) {
+    // console.log('inside createSchemaRegistryInstance')
+    // console.log('this.rpcUrl in createSchemaRegistryInstance------', this.rpcUrl)
+    // console.log(
+    //   'this.schemaManagerContractAddress in createSchemaRegistryInstance------',
+    //   this.schemaManagerContractAddress
+    // )
+    // console.log('this.fileServerToken in createSchemaRegistryInstance------', this.fileServerToken)
+    // console.log('this.fileServerUrl in createSchemaRegistryInstance------', this.fileServerUrl)
+    if (!this.rpcUrl || !this.schemaManagerContractAddress || !this.fileServerToken || !this.fileServerUrl) {
       throw new CredoError('Ethereum schema module config not found')
     }
 
-    return new PolygonSchema({
+    return new EthrSchema({
       rpcUrl: this.rpcUrl,
-      didRegistrarContractAddress: this.didContractAddress,
       schemaManagerContractAddress: this.schemaManagerContractAddress,
       fileServerToken: this.fileServerToken,
       serverUrl: this.fileServerUrl,
@@ -206,7 +215,11 @@ export class EthereumLedgerService {
       throw new CredoError('Incorrect wallet type: Ethereum Module currently only supports Askar wallet')
     }
 
-    const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKey }))
+    const keys = await wallet.withSession(async (session) => await session.fetchAllKeys({ limit: 3 }))
+
+    const keyEntry = keys.find((item) => item.name === publicKey)
+
+    // const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKey }))
 
     if (!keyEntry) {
       throw new WalletError('Key not found in wallet')
@@ -219,7 +232,7 @@ export class EthereumLedgerService {
     return signingKey
   }
 
-  private async getPublicKeyFromDid(agentContext: AgentContext, did: string) {
+  private async getPublicKeyAndAddressFromDid(agentContext: AgentContext, did: string) {
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
     const didRecord = await didRepository.findCreatedDid(agentContext, did)
@@ -231,28 +244,36 @@ export class EthereumLedgerService {
       throw new CredoError('VerificationMethod not found cannot get public key')
     }
 
+    console.log('In getPublicKeyAndAddressFromDid verificationMethod------', JSON.stringify(didRecord.didDocument))
+    const blockchainAccountId = getPreferredKey(didRecord.didDocument.verificationMethod)
+
     // eslint-disable-next-line no-prototype-builtins
     const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.hasOwnProperty('publicKeyHex'))
     const publicKey = keyObj ? keyObj.publicKeyHex : undefined
 
+    // console.log('publicKey------', publicKey)
+
     // const publicKeyBase58 = didRecord.didDocument.verificationMethod[0].publicKeyBase58
 
-    return publicKey
+    const publicKeyBase58 = publicKey ? convertHexToBase58(publicKey) : undefined
+    // console.log('publicKeyBase58 in getPublicKeyFromDid------', publicKeyBase58)
+
+    return { publicKeyBase58, blockchainAccountId }
   }
 
-  public updateModuleConfig({
-    didRegistrarContractAddress,
-    fileServerToken,
-    rpcUrl,
-    schemaManagerContractAddress,
-    serverUrl,
-  }: SchemaRegistryConfig) {
-    this.rpcUrl = rpcUrl
-    this.didContractAddress = didRegistrarContractAddress
-    this.schemaManagerContractAddress = schemaManagerContractAddress
-    this.fileServerToken = fileServerToken
-    this.fileServerUrl = serverUrl
-  }
+  // public updateModuleConfig({
+  //   didRegistrarContractAddress,
+  //   fileServerToken,
+  //   rpcUrl,
+  //   schemaManagerContractAddress,
+  //   serverUrl,
+  // }: SchemaRegistryConfig) {
+  //   this.rpcUrl = rpcUrl
+  //   this.didContractAddress = didRegistrarContractAddress
+  //   this.schemaManagerContractAddress = schemaManagerContractAddress
+  //   this.fileServerToken = fileServerToken
+  //   this.fileServerUrl = serverUrl
+  // }
 
   public async resolveDID(did: string) {
     return await this.resolver.resolve(did)

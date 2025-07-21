@@ -9,9 +9,10 @@ import { v4 as uuidv4 } from 'uuid'
 import SchemaRegistryAbi from '../abi/SchemaRegistry.json'
 import { parseDid } from '../utils/did'
 import { buildSchemaResource } from '../utils/schemaHelper'
+import { parseAddress } from '../utils/utils'
 
 export type PolygonDidInitOptions = {
-  didRegistrarContractAddress: string
+  // didRegistrarContractAddress: string
   rpcUrl: string
   signingKey: SigningKey
   schemaManagerContractAddress: string
@@ -49,7 +50,7 @@ export type EstimatedTxDetails = {
   method: string
 }
 
-export class PolygonSchema {
+export class EthrSchema {
   private schemaRegistry: Contract
   private fileServerUrl: string
   private accessToken: string
@@ -72,7 +73,7 @@ export class PolygonSchema {
     this.schemaRegistry = new Contract(schemaManagerContractAddress, SchemaRegistryAbi, wallet)
   }
 
-  public async createSchema(did: string, schemaName: string, schema: object) {
+  public async createSchema(did: string, schemaName: string, schema: object, address: string) {
     if (!schemaName || Object?.keys(schema)?.length === 0) {
       throw new Error(`Schema name and Schema are required!`)
     }
@@ -80,6 +81,7 @@ export class PolygonSchema {
     let schemaId
     const tnxSchemaId = ''
     const schemaTxhash: string = ''
+    address = parseAddress(address)
 
     if (!this.accessToken) {
       throw new Error(`Invalid token!`)
@@ -90,21 +92,13 @@ export class PolygonSchema {
       // if (!isValidDid) {
       //   throw new Error('Invalid did provided')
       // }
-      const parsedDid = parseDid(did)
-
-      // const didDetails = await this.resolver.resolve(did)
-      // if (!didDetails.didDocument) {
-      //   throw new Error(`The DID document for the given DID was not found!`)
-      // }
+      // const parsedDid = parseDid(did)
+      // console.log('schemaManager parsedDid', parsedDid)
 
       schemaId = uuidv4()
-      const schemaResource: ResourcePayload = await buildSchemaResource(did, schemaId, schemaName, schema)
+      const schemaResource: ResourcePayload = await buildSchemaResource(did, schemaId, schemaName, schema, address)
 
-      const schemaTxnReceipt = await this.schemaRegistry.createSchema(
-        parsedDid.didAddress,
-        schemaId,
-        JSON.stringify(schemaResource)
-      )
+      const schemaTxnReceipt = await this.schemaRegistry.createSchema(address, schemaId, JSON.stringify(schemaResource))
       // To change the nonce for next transaction
       await schemaTxnReceipt.wait()
 
@@ -113,6 +107,8 @@ export class PolygonSchema {
       }
 
       const uploadSchemaDetails = await this.uploadSchemaFile(schemaId, schema)
+
+      console.log('uploadSchemaDetails in createSchema------', JSON.stringify(uploadSchemaDetails))
 
       if (!uploadSchemaDetails) {
         throw new Error(`Error while uploading schema on file server!`)
@@ -136,7 +132,6 @@ export class PolygonSchema {
         // resourceTxnHash: addedResourcetxnReceipt.hash,
       }
     } catch (error) {
-      console.log(`Error occurred in createSchema function ${error} `)
       return {
         tnxSchemaId,
         schemaTxhash,
@@ -202,6 +197,8 @@ export class PolygonSchema {
       if (!schemaResourceId || Object?.keys(schema)?.length === 0) {
         throw new Error(`Schema resource id and schema are required!`)
       }
+
+      // console.log('fileServerUrl in uploadSchemaFile------', this.fileServerUrl)
       const schemaPayload = {
         schemaId: `${schemaResourceId}`,
         schema,
@@ -216,7 +213,7 @@ export class PolygonSchema {
         },
         data: JSON.stringify(schemaPayload),
       }
-
+      // console.log('axiosOptions in uploadSchemaFile------', JSON.stringify(axiosOptions))
       const response = await axios(axiosOptions)
       return response
     } catch (error) {
@@ -292,6 +289,7 @@ export class PolygonSchema {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async validateSchemaObject(json: Record<string, any>) {
     try {
       if (typeof json !== 'object' || json === null) {

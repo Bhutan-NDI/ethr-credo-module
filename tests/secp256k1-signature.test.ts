@@ -150,6 +150,7 @@ describe('Secp256k1 W3cCredentialService', () => {
         credentialJson.issuer = issuerDid
 
         const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
+        console.log('credential---------', JSON.stringify(credential))
 
         const vc = await w3cJsonLdCredentialService.signCredential(agentContext, {
           format: ClaimFormat.LdpVc,
@@ -172,6 +173,9 @@ describe('Secp256k1 W3cCredentialService', () => {
         credentialJson.issuer = issuerDid
 
         const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
+
+        console.log('credential---------', JSON.stringify(credential))
+
 
         expect(async () => {
           await w3cJsonLdCredentialService.signCredential(agentContext, {

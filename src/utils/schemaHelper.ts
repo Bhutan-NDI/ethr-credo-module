@@ -1,8 +1,6 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import keccak256 from 'keccak256'
 
-import { parseDid } from './did'
-
 /**
  * Build schema JSON.
  * @param did
@@ -10,7 +8,13 @@ import { parseDid } from './did'
  * @param name
  * @returns Returns the build schema resource Document.
  */
-export async function buildSchemaResource(did: string, schemaId: string, name: string, schema: object) {
+export async function buildSchemaResource(
+  did: string,
+  schemaId: string,
+  name: string,
+  schema: object,
+  address: string
+) {
   const checksum = await keccak256(String(schema)).toString('hex')
   if (!checksum) {
     throw new Error(`Error while calculating checksum!`)
@@ -18,7 +22,7 @@ export async function buildSchemaResource(did: string, schemaId: string, name: s
 
   return {
     resourceURI: `${did}/resources/${schemaId}`,
-    resourceCollectionId: parseDid(did).didAddress,
+    resourceCollectionId: address,
     resourceId: `${schemaId}`,
     resourceName: `${name}`,
     resourceType: 'W3C-schema',
