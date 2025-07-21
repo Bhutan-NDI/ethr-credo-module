@@ -6,7 +6,6 @@ import {
   VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
   VerificationMethod,
 } from '@credo-ts/core'
-import bs58 from 'bs58'
 
 import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites'
 

@@ -1,4 +1,4 @@
-import type { AgentContext, DidDocument, VerificationMethod, Wallet } from '@credo-ts/core'
+import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
 
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
 import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
@@ -210,7 +210,7 @@ export class EthereumLedgerService {
     })
   }
 
-  private async getSigningKey(wallet: Wallet, publicKey: string): Promise<SigningKey> {
+  private async getSigningKey(wallet: Wallet, publicKey?: string): Promise<SigningKey> {
     if (!(wallet instanceof AskarWallet) && !(wallet instanceof AskarProfileWallet)) {
       throw new CredoError('Incorrect wallet type: Ethereum Module currently only supports Askar wallet')
     }

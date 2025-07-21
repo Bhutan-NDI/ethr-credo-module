@@ -1,5 +1,5 @@
 {
-  "name": "@ayanworks/credo-ethr-module",
+  "name": "@ankitaawts/credo-ethr-module",
   "main": "build/index",
   "types": "build/index",
   "version": "0.0.1",
@@ -34,7 +34,8 @@
     "ethr-did-resolver": "^11.0.4",
     "ethers": "^6.9.0",
     "keccak256": "^1.0.6",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "axios": "^1.6.3"
   },
   "devDependencies": {
     "@credo-ts/node": "0.5.3",
