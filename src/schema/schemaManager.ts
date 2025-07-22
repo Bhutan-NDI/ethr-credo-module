@@ -108,7 +108,7 @@ export class EthrSchema {
 
       const uploadSchemaDetails = await this.uploadSchemaFile(schemaId, schema)
 
-      console.log('uploadSchemaDetails in createSchema------', JSON.stringify(uploadSchemaDetails))
+      // console.log('uploadSchemaDetails in createSchema------', JSON.stringify(uploadSchemaDetails))
 
       if (!uploadSchemaDetails) {
         throw new Error(`Error while uploading schema on file server!`)
