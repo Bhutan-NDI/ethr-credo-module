@@ -1,14 +1,14 @@
 import type { AgentContext, DidDocument, Wallet } from '@credo-ts/core'
 
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
-import { CredoError, DidRepository, WalletError, injectable } from '@credo-ts/core'
+import { CredoError, DidRepository, TypedArrayEncoder, WalletError, injectable } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { SigningKey } from 'ethers'
 import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthrSchema } from '../schema/schemaManager'
-import { convertHexToBase58, getPreferredKey } from '../utils/utils'
+import { getPreferredKey } from '../utils/utils'
 
 // interface SchemaRegistryConfig {
 //   didRegistrarContractAddress: string
@@ -87,7 +87,7 @@ export class EthereumLedgerService {
     { did, schemaName, schema }: { did: string; schemaName: string; schema: object }
   ) {
     console.log('inside create schema')
-    const keyResult = await this.getPublicKeyAndAddressFromDid(agentContext, did)
+    const keyResult = await this.getPublicKeyFromDid(agentContext, did)
 
     // console.log('result of getPublicKeyAndAddressFromDid createSchema------', JSON.stringify(keyResult))
 
@@ -114,7 +114,7 @@ export class EthereumLedgerService {
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
 
-    const keyResult = await this.getPublicKeyAndAddressFromDid(agentContext, did)
+    const keyResult = await this.getPublicKeyFromDid(agentContext, did)
 
     if (!keyResult) {
       throw new CredoError('Public Key not found in wallet')
@@ -210,16 +210,12 @@ export class EthereumLedgerService {
     })
   }
 
-  private async getSigningKey(wallet: Wallet, publicKey?: string): Promise<SigningKey> {
+  private async getSigningKey(wallet: Wallet, publicKeyBase58: string): Promise<SigningKey> {
     if (!(wallet instanceof AskarWallet) && !(wallet instanceof AskarProfileWallet)) {
       throw new CredoError('Incorrect wallet type: Ethereum Module currently only supports Askar wallet')
     }
 
-    const keys = await wallet.withSession(async (session) => await session.fetchAllKeys({ limit: 3 }))
-
-    const keyEntry = keys.find((item) => item.name === publicKey)
-
-    // const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKey }))
+    const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKeyBase58 }))
 
     if (!keyEntry) {
       throw new WalletError('Key not found in wallet')
@@ -232,7 +228,7 @@ export class EthereumLedgerService {
     return signingKey
   }
 
-  private async getPublicKeyAndAddressFromDid(agentContext: AgentContext, did: string) {
+  private async getPublicKeyFromDid(agentContext: AgentContext, did: string) {
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
     const didRecord = await didRepository.findCreatedDid(agentContext, did)
@@ -247,15 +243,19 @@ export class EthereumLedgerService {
     console.log('In getPublicKeyAndAddressFromDid verificationMethod------', JSON.stringify(didRecord.didDocument))
     const blockchainAccountId = getPreferredKey(didRecord.didDocument.verificationMethod)
 
-    // eslint-disable-next-line no-prototype-builtins
-    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.hasOwnProperty('publicKeyHex'))
-    const publicKey = keyObj ? keyObj.publicKeyHex : undefined
+    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.publicKeyHex)
+
+    if (!keyObj || !keyObj.publicKeyHex) {
+      throw new CredoError('Public Key hex not found in wallet for did: ' + did)
+    }
 
     // console.log('publicKey------', publicKey)
 
     // const publicKeyBase58 = didRecord.didDocument.verificationMethod[0].publicKeyBase58
 
-    const publicKeyBase58 = publicKey ? convertHexToBase58(publicKey) : undefined
+    const publicKey = TypedArrayEncoder.fromHex(keyObj.publicKeyHex)
+
+    const publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
     // console.log('publicKeyBase58 in getPublicKeyFromDid------', publicKeyBase58)
 
     return { publicKeyBase58, blockchainAccountId }
