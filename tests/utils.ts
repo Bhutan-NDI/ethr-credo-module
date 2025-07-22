@@ -11,7 +11,6 @@ import {
   InjectionSymbols,
   LogLevel,
   utils,
-  W3cCredentialsModule,
 } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 
@@ -68,6 +67,11 @@ export function getAgentConfig(
           },
         ],
       },
+      schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
+      serverUrl: 'https://dev-schema.ngotag.com',
+      fileServerToken:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
+      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
     }),
     dids: new DidsModule({
       resolvers: [new EthereumDidResolver()],

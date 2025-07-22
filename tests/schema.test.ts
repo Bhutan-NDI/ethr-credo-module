@@ -168,11 +168,11 @@ describe('Ethereum Module did resolver', () => {
         schema: testSchema,
       })
       schemaId = response.schemaId
-      console.log('EthereumSchema --- Created Schema Response', JSON.stringify(response))
     })
 
     it('should resolve a schema by Id', async () => {
       const schema = await faberAgent.modules.ethereum.getSchemaById(did, schemaId)
+      // eslint-disable-next-line no-console
       console.log('EthereumSchema --- Get schema By id', schema)
     })
 

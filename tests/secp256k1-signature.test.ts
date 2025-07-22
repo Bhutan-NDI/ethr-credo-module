@@ -33,11 +33,10 @@ import { registerAriesAskar } from '@hyperledger/aries-askar-shared'
 
 import { EthereumModuleConfig } from '../src/EthereumModuleConfig'
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
-import { EcdsaSecp256k1RecoverySignature2020, EcdsaSecp256k1Signature2019 } from '../src/signature-suites'
+import { EcdsaSecp256k1Signature2019 } from '../src/signature-suites'
 
 import { EcdsaSecp256k1Signature2019Fixtures } from './fixtures'
 import { getAgentConfig, getAgentContext } from './utils'
-import { defaultDocumentLoader } from '@credo-ts/core/build/modules/vc/data-integrity/libraries/documentLoader'
 
 export const askarModuleConfig = new AskarModuleConfig({ ariesAskar })
 registerAriesAskar({ askar: askarModuleConfig.ariesAskar })
@@ -102,6 +101,11 @@ describe('Secp256k1 W3cCredentialService', () => {
                 },
               ],
             },
+            schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
+            serverUrl: 'https://dev-schema.ngotag.com',
+            fileServerToken:
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
+            rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
           }),
         ],
       ],
@@ -150,7 +154,6 @@ describe('Secp256k1 W3cCredentialService', () => {
         credentialJson.issuer = issuerDid
 
         const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
-        console.log('credential---------', JSON.stringify(credential))
 
         const vc = await w3cJsonLdCredentialService.signCredential(agentContext, {
           format: ClaimFormat.LdpVc,
@@ -173,9 +176,6 @@ describe('Secp256k1 W3cCredentialService', () => {
         credentialJson.issuer = issuerDid
 
         const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
-
-        console.log('credential---------', JSON.stringify(credential))
-
 
         expect(async () => {
           await w3cJsonLdCredentialService.signCredential(agentContext, {

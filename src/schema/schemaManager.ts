@@ -9,7 +9,6 @@ import { buildSchemaResource } from '../utils/schemaHelper'
 import { parseAddress } from '../utils/utils'
 
 export type PolygonDidInitOptions = {
-  // didRegistrarContractAddress: string
   rpcUrl: string
   signingKey: SigningKey
   schemaManagerContractAddress: string
@@ -85,13 +84,6 @@ export class EthrSchema {
     }
 
     try {
-      // const isValidDid = validateDid(did)
-      // if (!isValidDid) {
-      //   throw new Error('Invalid did provided')
-      // }
-      // const parsedDid = parseDid(did)
-      // console.log('schemaManager parsedDid', parsedDid)
-
       schemaId = utils.uuid()
       const schemaResource: ResourcePayload = await buildSchemaResource(did, schemaId, schemaName, schema, address)
 
@@ -104,8 +96,6 @@ export class EthrSchema {
       }
 
       const uploadSchemaDetails = await this.uploadSchemaFile(schemaId, schema)
-
-      // console.log('uploadSchemaDetails in createSchema------', JSON.stringify(uploadSchemaDetails))
 
       if (!uploadSchemaDetails) {
         throw new Error(`Error while uploading schema on file server!`)
@@ -162,8 +152,7 @@ export class EthrSchema {
       }
       return JSON.parse(schemaDetails)
     } catch (error) {
-      console.log(`Error occurred in createSchema function ${error}`)
-      throw error
+      throw new Error(`Error occurred in getSchemaById function ${error}`)
     }
   }
 
@@ -195,7 +184,6 @@ export class EthrSchema {
         throw new Error(`Schema resource id and schema are required!`)
       }
 
-      // console.log('fileServerUrl in uploadSchemaFile------', this.fileServerUrl)
       const schemaPayload = {
         schemaId: `${schemaResourceId}`,
         schema,
@@ -210,11 +198,10 @@ export class EthrSchema {
         },
         data: JSON.stringify(schemaPayload),
       }
-      // console.log('axiosOptions in uploadSchemaFile------', JSON.stringify(axiosOptions))
       const response = await axios(axiosOptions)
       return response
     } catch (error) {
-      console.log(`Error occurred in uploadSchemaFile function ${error} `)
+      throw new Error(`Error occurred in uploadSchemaFile function ${error} `)
       throw error
     }
   }
@@ -281,8 +268,7 @@ export class EthrSchema {
 
       return estimatedTxDetails
     } catch (error) {
-      console.error('Error calculating transaction fee:', error)
-      return null
+      throw new Error(`Error calculating transaction fee: ${error}`)
     }
   }
 
@@ -303,8 +289,7 @@ export class EthrSchema {
 
       return true
     } catch (error) {
-      console.error('Error validating schema JSON:', error)
-      return null
+      throw new Error(`Error validating schema JSON: ${error}`)
     }
   }
 }

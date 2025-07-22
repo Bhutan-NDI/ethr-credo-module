@@ -66,7 +66,6 @@ export function convertHexToBase58(publicKeyHex: string): string {
   const buffer = Buffer.from(publicKeyHex, 'hex')
 
   const publicKeyBase58 = TypedArrayEncoder.toBase58(buffer)
-  console.log('publicKeyBase58 in convertHexToBase58------', publicKeyBase58)
 
   return publicKeyBase58
 }

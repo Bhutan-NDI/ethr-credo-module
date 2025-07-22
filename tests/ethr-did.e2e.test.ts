@@ -62,11 +62,14 @@ describe('Ethereum Module did resolver', () => {
               },
             ],
           },
+          schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
+          serverUrl: 'https://dev-schema.ngotag.com',
+          fileServerToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
+          rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
         }),
       },
     })
-
-    // console.log('Initialized aliceAgent-----', JSON.stringify(aliceAgent))
 
     aliceAgent.registerOutboundTransport(new SubjectOutboundTransport(subjectMap))
     aliceAgent.registerInboundTransport(new SubjectInboundTransport(aliceMessages))
@@ -98,7 +101,6 @@ describe('Ethereum Module did resolver', () => {
   })
 
   it('create and resolve a did:ethr did', async () => {
-    console.log('calling aliceAgent.dids.create-----')
     const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
       method: 'ethr',
       options: {
@@ -110,17 +112,11 @@ describe('Ethereum Module did resolver', () => {
     })
     did =
       createdDid.didState.did || 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
-
-    console.log('set createdDid as did----', JSON.stringify(did))
-    console.log('createdDid--------', JSON.stringify(createdDid))
   })
 
   describe('EthereumDidResolver', () => {
     it('should resolve a ethereum did when valid did is passed', async () => {
-      console.log('did--------', did)
       const resolvedDIDDoc = await aliceAgent.dids.resolve(did)
-
-      console.log('resolvedDIDDoc--------', JSON.stringify(resolvedDIDDoc))
       expect(resolvedDIDDoc.didDocument?.context).toEqual(
         EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument['@context']
       )

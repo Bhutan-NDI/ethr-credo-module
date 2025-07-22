@@ -1,4 +1,4 @@
-import { CREDENTIALS_CONTEXT_V1_URL, SECURITY_CONTEXT_URL } from '@credo-ts/core'
+import { CREDENTIALS_CONTEXT_V1_URL } from '@credo-ts/core'
 
 export const EcdsaSecp256k1Signature2019Fixtures = {
   TEST_LD_DOCUMENT: {
