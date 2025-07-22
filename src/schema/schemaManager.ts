@@ -1,13 +1,10 @@
 import type { SigningKey, Network } from 'ethers'
 
-// eslint-disable-next-line import/no-extraneous-dependencies
+import { utils } from '@credo-ts/core'
 import axios from 'axios'
 import { Contract, JsonRpcProvider, Wallet } from 'ethers'
-// eslint-disable-next-line import/no-extraneous-dependencies
-import { v4 as uuidv4 } from 'uuid'
 
 import SchemaRegistryAbi from '../abi/SchemaRegistry.json'
-import { parseDid } from '../utils/did'
 import { buildSchemaResource } from '../utils/schemaHelper'
 import { parseAddress } from '../utils/utils'
 
@@ -95,7 +92,7 @@ export class EthrSchema {
       // const parsedDid = parseDid(did)
       // console.log('schemaManager parsedDid', parsedDid)
 
-      schemaId = uuidv4()
+      schemaId = utils.uuid()
       const schemaResource: ResourcePayload = await buildSchemaResource(did, schemaId, schemaName, schema, address)
 
       const schemaTxnReceipt = await this.schemaRegistry.createSchema(address, schemaId, JSON.stringify(schemaResource))
@@ -143,29 +140,29 @@ export class EthrSchema {
     }
   }
 
-  public async getSchemaById(did: string, schemaId: string) {
+  public async getSchemaById(did: string, schemaId: string, address: string) {
     try {
       if (!schemaId) {
-        throw new Error(`Schema id is required!`)
+        throw new Error('Schema id is required!')
       }
       // const isValidDid = validateDid(did)
       // if (!isValidDid) {
       //   throw new Error('invalid did provided')
       // }
 
-      const parsedDid = parseDid(did)
+      address = parseAddress(address)
 
       // const didDetails = await this.resolver.resolve(did)
       // if (!didDetails.didDocument) {
-      //   throw new Error(`The DID document for the given DID was not found!`)
+      //   throw new Error(The DID document for the given DID was not found!)
       // }
-      const schemaDetails = await this.schemaRegistry.getSchemaById(parsedDid.didAddress, schemaId)
+      const schemaDetails = await this.schemaRegistry.getSchemaById(address, schemaId)
       if (!schemaDetails) {
         throw new Error('Error while fetching schema details by schema id!')
       }
       return JSON.parse(schemaDetails)
     } catch (error) {
-      console.log(`Error occurred in createSchema function ${error} `)
+      console.log(`Error occurred in createSchema function ${error}`)
       throw error
     }
   }

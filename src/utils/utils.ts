@@ -3,11 +3,10 @@ import type { DidDocument } from '@credo-ts/core'
 import {
   DidDocumentBuilder,
   DidDocumentService,
+  TypedArrayEncoder,
   VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
   VerificationMethod,
 } from '@credo-ts/core'
-// eslint-disable-next-line import/no-extraneous-dependencies
-import bs58 from 'bs58'
 
 import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites'
 
@@ -66,7 +65,7 @@ export function convertHexToBase58(publicKeyHex: string): string {
   // Convert hex to a buffer
   const buffer = Buffer.from(publicKeyHex, 'hex')
 
-  const publicKeyBase58 = bs58.encode(buffer)
+  const publicKeyBase58 = TypedArrayEncoder.toBase58(buffer)
   console.log('publicKeyBase58 in convertHexToBase58------', publicKeyBase58)
 
   return publicKeyBase58

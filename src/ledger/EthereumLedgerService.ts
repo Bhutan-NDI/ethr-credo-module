@@ -114,17 +114,17 @@ export class EthereumLedgerService {
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
 
-    const publicKeyBase58 = await this.getPublicKeyAndAddressFromDid(agentContext, did)
+    const keyResult = await this.getPublicKeyAndAddressFromDid(agentContext, did)
 
-    if (!publicKeyBase58) {
+    if (!keyResult) {
       throw new CredoError('Public Key not found in wallet')
     }
 
-    const signingKey = await this.getSigningKey(agentContext.wallet, publicKeyBase58.publicKeyBase58)
+    const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
 
     const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
 
-    const response = await schemaRegistry.getSchemaById(did, schemaId)
+    const response = await schemaRegistry.getSchemaById(did, schemaId, keyResult.blockchainAccountId)
 
     if (!response) {
       agentContext.config.logger.error(`Schema not found for did: ${did} and schemaId: ${schemaId} Error: ${response}`)

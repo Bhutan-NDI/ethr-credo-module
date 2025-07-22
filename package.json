@@ -30,13 +30,11 @@
     "@credo-ts/askar": "0.5.3",
     "@credo-ts/core": "0.5.3",
     "axios": "^1.6.3",
-    "bs58": "^6.0.0",
     "did-resolver": "^4.1.0",
     "ethers": "^6.9.0",
     "ethr-did": "^3.0.38",
     "ethr-did-resolver": "^11.0.4",
-    "keccak256": "^1.0.6",
-    "uuid": "^9.0.1"
+    "keccak256": "^1.0.6"
   },
   "devDependencies": {
     "@credo-ts/node": "0.5.3",
@@ -44,7 +42,6 @@
     "@hyperledger/aries-askar-shared": "0.2.1",
     "@types/jest": "^26.0.23",
     "@types/node": "^18.18.8",
-    "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
     "eslint": "^7.32.0",
