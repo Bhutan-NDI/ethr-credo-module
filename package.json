@@ -1,8 +1,8 @@
 {
-  "name": "@bhutan-ndi/credo-ethr-module",
+  "name": "@ayanworks/credo-ethr-module",
   "main": "build/index",
   "types": "build/index",
-  "version": "0.0.1-alpha-10",
+  "version": "0.0.1-alpha",
   "files": [
     "build"
   ],
