@@ -1,5 +1,45 @@
 [
   {
+    "inputs": [
+      { "internalType": "address", "name": "_owner", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "owner", "type": "address" }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "account", "type": "address" }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -13,163 +53,83 @@
         "internalType": "string",
         "name": "schemaId",
         "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "schemaJson",
-        "type": "string"
       }
     ],
     "name": "SchemaCreate",
     "type": "event"
   },
   {
-    "anonymous": false,
     "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
+      { "internalType": "address", "name": "_id", "type": "address" },
+      { "internalType": "string", "name": "newSchemaId", "type": "string" },
+      { "internalType": "string", "name": "_json", "type": "string" }
     ],
-    "name": "TransferOwnership",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_id",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "newSchemaId",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_json",
-        "type": "string"
-      }
-    ],
-    "name": "createSchema",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "schemaId",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getOwner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "_owner",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_id",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "_schemaId",
-        "type": "string"
-      }
-    ],
-    "name": "getSchemaById",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "string",
-            "name": "schemaJson",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct SchemaRegistry.Schema",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "initialize",
+    "name": "adminCreateSchema",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
+    "inputs": [
+      { "internalType": "string", "name": "newSchemaId", "type": "string" },
+      { "internalType": "string", "name": "_json", "type": "string" }
+    ],
+    "name": "createSchema",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "_id", "type": "address" }],
+    "name": "getSchemaIds",
+    "outputs": [{ "internalType": "string[]", "name": "", "type": "string[]" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "owner",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_id", "type": "address" },
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "name": "schemaIds",
     "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
+      { "internalType": "string", "name": "schemaIds", "type": "string" }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
+      { "internalType": "address", "name": "_id", "type": "address" },
+      { "internalType": "string", "name": "schemaId", "type": "string" }
     ],
     "name": "schemas",
     "outputs": [
-      {
-        "internalType": "string",
-        "name": "schemaJson",
-        "type": "string"
-      }
+      { "internalType": "string", "name": "schema", "type": "string" }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "_newOwner",
-        "type": "address"
-      }
+      { "internalType": "address", "name": "newOwner", "type": "address" }
     ],
     "name": "transferOwnership",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
+    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   }
