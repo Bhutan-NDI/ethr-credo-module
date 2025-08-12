@@ -39,9 +39,6 @@ export class EthereumSchemaRegistry {
     if (!config.rpcUrl) {
       throw new ValidationError('RPC URL is required')
     }
-    if (!config.signingKey) {
-      throw new ValidationError('Signing Key is required')
-    }
   }
 
   /**
@@ -86,7 +83,7 @@ export class EthereumSchemaRegistry {
   /**
    * Get a schema by owner address and schema ID
    */
-  public async getSchema(address: string, schemaId: string): Promise<string | null> {
+  public async getSchemaById(address: string, schemaId: string): Promise<string | null> {
     this.validateAddress(address)
     this.validateSchemaId(schemaId)
 
