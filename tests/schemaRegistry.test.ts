@@ -34,7 +34,7 @@ describe('Client Schema Management:', () => {
     schemaJSON = JSON.stringify(testSchemaSample)
     const schemaRegistryConfig: SchemaRegistryConfig = {
       signingKey: new SigningKey('0x3f6254328fa58202094c954d89964119830f85e2f4bfdbabb1d8bcfc008d2fdd'),
-      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/XUo--fMnn250sIOxldOhx1J9-rput18B',
+      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
       contractAddress: '0x70F88e12EaE54548839f320A5958C49421512A84',
     }
     client = new EthereumSchemaRegistry(schemaRegistryConfig)
@@ -65,7 +65,7 @@ describe('Client Schema Management:', () => {
   })
 
   it('should retrieve the schema by id', async () => {
-    const retrieved = await client.getSchema(wallet.address, testSchemaId)
+    const retrieved = await client.getSchemaById(wallet.address, testSchemaId)
     expect(retrieved).toBe(schemaJSON)
   })
 
@@ -77,16 +77,16 @@ describe('Client Schema Management:', () => {
 
   it('should return null when schema does not exist', async () => {
     const newSchemaId = utils.uuid()
-    const result = await client.getSchema(wallet.address, newSchemaId)
+    const result = await client.getSchemaById(wallet.address, newSchemaId)
     expect(result).toBeNull()
   })
 
   it('should throw ValidationError for invalid address', async () => {
-    await expect(client.getSchema('invalid-address', testSchemaId)).rejects.toThrow(ValidationError)
+    await expect(client.getSchemaById('invalid-address', testSchemaId)).rejects.toThrow(ValidationError)
   })
 
   it('should throw ValidationError for empty schema ID', async () => {
-    await expect(client.getSchema(wallet.address, '')).rejects.toThrow(ValidationError)
+    await expect(client.getSchemaById(wallet.address, '')).rejects.toThrow(ValidationError)
   })
 
   it('should throw ContractError when not owner', async () => {
@@ -121,7 +121,7 @@ describe('Admin Schema Management:', () => {
   })
 
   it('should allow admin to retrieve the schema by id for other address', async () => {
-    const retrieved = await admin.getSchema(otherWallet.address, testSchemaId)
+    const retrieved = await admin.getSchemaById(otherWallet.address, testSchemaId)
     expect(retrieved).toBe(schemaJSON)
   })
 
