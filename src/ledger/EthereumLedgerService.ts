@@ -1,17 +1,49 @@
 import type { AgentContext, Wallet } from '@credo-ts/core'
 
 import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
-import { CredoError, DidRepository, TypedArrayEncoder, WalletError, injectable } from '@credo-ts/core'
+import { CredoError, DidRepository, TypedArrayEncoder, WalletError, injectable, utils } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { SigningKey } from 'ethers'
 import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
-import { EthrSchema } from '../schema/schemaManager'
-import { getPreferredKey } from '../utils/utils'
+import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
+import { buildSchemaResource, uploadSchemaFile } from '../utils/schemaHelper'
+import { getPreferredKey, parseAddress } from '../utils/utils'
 
-export enum SchemaOperation {
-  CreateSchema = 'createSchema',
+/**
+ * Custom error classes for better error handling
+ */
+export class EthereumLedgerError extends CredoError {
+  public constructor(message: string, cause?: Error) {
+    super(message, { cause })
+    this.name = 'EthereumLedgerError'
+  }
+}
+
+export class SchemaCreationError extends EthereumLedgerError {
+  public constructor(did: string, reason: string, cause?: Error) {
+    super(`Schema creation failed for DID: ${did}. Reason: ${reason}`, cause)
+    this.name = 'SchemaCreationError'
+  }
+}
+
+export class SchemaRetrievalError extends EthereumLedgerError {
+  public constructor(did: string, schemaId: string, reason: string, cause?: Error) {
+    super(`Schema retrieval failed for DID: ${did}, Schema ID: ${schemaId}. Reason: ${reason}`, cause)
+    this.name = 'SchemaRetrievalError'
+  }
+}
+
+export interface SchemaCreationResult {
+  did: string
+  schemaId: string
+  schemaTxnHash?: string
+}
+export interface SchemaCreateOptions {
+  did: string
+  schemaName: string
+  schema: object
 }
 
 @injectable()
@@ -22,6 +54,9 @@ export class EthereumLedgerService {
   private readonly fileServerUrl: string
   public readonly resolver: Resolver
   public constructor(config: EthereumModuleConfig) {
+    // Validate configuration
+    this.validateConfig(config)
+
     this.resolver = new Resolver(getResolver(config.config))
     this.rpcUrl = config.rpcUrl
     this.schemaManagerContractAddress = config.schemaManagerContractAddress
@@ -29,66 +64,125 @@ export class EthereumLedgerService {
     this.fileServerUrl = config.serverUrl
   }
 
+  /**
+   * Creates a schema on the Ethereum ledger
+   */
   public async createSchema(
     agentContext: AgentContext,
-    { did, schemaName, schema }: { did: string; schemaName: string; schema: object }
-  ) {
-    const keyResult = await this.getPublicKeyFromDid(agentContext, did)
-
-    if (!keyResult.publicKeyBase58) {
-      throw new CredoError('Public Key not found in wallet')
+    { did, schemaName, schema }: SchemaCreateOptions
+  ): Promise<SchemaCreationResult> {
+    // Validate inputs
+    if (!did?.trim()) {
+      throw new SchemaCreationError(did, 'DID is required and cannot be empty')
     }
-
-    const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
-
-    const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
+    if (!schemaName?.trim()) {
+      throw new SchemaCreationError(did, 'Schema name is required and cannot be empty')
+    }
+    if (!schema || Object.keys(schema).length === 0) {
+      throw new SchemaCreationError(did, 'Schema must be a valid object and not empty')
+    }
 
     agentContext.config.logger.info(`Creating schema on ledger: ${did}`)
 
-    const response = await schemaRegistry.createSchema(did, schemaName, schema, keyResult.blockchainAccountId)
-    if (!response) {
-      agentContext.config.logger.error(`Schema creation failed for did: ${did} and schema: ${schema}`)
-      throw new CredoError(`Schema creation failed for did: ${did} and schema: ${schema}`)
+    try {
+      const keyResult = await this.getPublicKeyFromDid(agentContext, did)
+
+      if (!keyResult.publicKeyBase58) {
+        throw new CredoError('Public Key not found in wallet')
+      }
+
+      const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
+
+      const ethSchemaRegistry = new EthereumSchemaRegistry({
+        contractAddress: this.schemaManagerContractAddress,
+        rpcUrl: this.rpcUrl,
+        signingKey: signingKey,
+      })
+
+      const schemaId = utils.uuid()
+      const address = parseAddress(keyResult.blockchainAccountId)
+      const schemaResource = await buildSchemaResource(did, schemaId, schemaName, schema, address)
+
+      // Create schema on blockchain and upload to file server in parallel
+      const [blockchainResponse, uploadResponse] = await Promise.allSettled([
+        ethSchemaRegistry.createSchema(schemaId, JSON.stringify(schemaResource)),
+        uploadSchemaFile(schemaId, schema, this.fileServerUrl, this.fileServerToken),
+      ])
+
+      // Handle blockchain response
+      if (blockchainResponse.status === 'rejected') {
+        throw new SchemaCreationError(did, 'Blockchain transaction failed', blockchainResponse.reason)
+      }
+
+      // Handle file server response
+      if (uploadResponse.status === 'rejected') {
+        agentContext.config.logger.warn(
+          `File server upload failed for schema ${schemaId}: ${uploadResponse.reason?.message || 'Unknown error'}`
+        )
+        // Continue execution as file server upload is not critical
+      }
+
+      const result = blockchainResponse.value
+      if (!result.hash) {
+        throw new SchemaCreationError(did, 'Invalid response from blockchain')
+      }
+
+      const response: SchemaCreationResult = {
+        did,
+        schemaId,
+        schemaTxnHash: result.hash,
+      }
+
+      agentContext.config.logger.info(`Successfully created schema on ledger for DID: ${did}`)
+
+      return response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error instanceof EthereumLedgerError) {
+        throw error
+      }
+
+      // Wrap other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      agentContext.config.logger.error(`Schema creation failed for DID: ${did}`, error)
+      throw new SchemaCreationError(did, errorMessage, error instanceof Error ? error : undefined)
     }
-    agentContext.config.logger.info(`Published schema on ledger: ${did}`)
-    return response
   }
 
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
+    // Validate inputs
+    if (!did?.trim()) {
+      throw new SchemaRetrievalError(did, schemaId, 'DID is required and cannot be empty')
+    }
+    if (!schemaId?.trim()) {
+      throw new SchemaRetrievalError(did, schemaId, 'Schema ID is required and cannot be empty')
+    }
+
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
+    try {
+      const ethSchemaRegistry = new EthereumSchemaRegistry({
+        contractAddress: this.schemaManagerContractAddress,
+        rpcUrl: this.rpcUrl,
+      })
 
-    const keyResult = await this.getPublicKeyFromDid(agentContext, did)
+      const keyResult = await this.getPublicKeyFromDid(agentContext, did)
+      const address = parseAddress(keyResult.blockchainAccountId)
+      const response = await ethSchemaRegistry.getSchemaById(address, schemaId)
 
-    if (!keyResult) {
-      throw new CredoError('Public Key not found in wallet')
+      if (!response) {
+        throw new SchemaRetrievalError(did, schemaId, 'Schema not found on ledger')
+      }
+      return response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error instanceof EthereumLedgerError) {
+        throw error
+      }
+      // Wrap other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      agentContext.config.logger.error(`Schema retrieval failed for DID: ${did}, Schema ID: ${schemaId}`, error)
+      throw new SchemaRetrievalError(did, schemaId, errorMessage, error instanceof Error ? error : undefined)
     }
-
-    const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
-
-    const schemaRegistry = this.createSchemaRegistryInstance(signingKey)
-
-    const response = await schemaRegistry.getSchemaById(did, schemaId, keyResult.blockchainAccountId)
-
-    if (!response) {
-      agentContext.config.logger.error(`Schema not found for did: ${did} and schemaId: ${schemaId} Error: ${response}`)
-      throw new CredoError(`Schema not found for did: ${did} and schemaId: ${schemaId}`)
-    }
-    agentContext.config.logger.info(`Got schema from ledger: ${did} and schemaId: ${schemaId}`)
-    return response
-  }
-
-  private createSchemaRegistryInstance(signingKey: SigningKey) {
-    if (!this.rpcUrl || !this.schemaManagerContractAddress || !this.fileServerToken || !this.fileServerUrl) {
-      throw new CredoError('Ethereum schema module config not found')
-    }
-
-    return new EthrSchema({
-      rpcUrl: this.rpcUrl,
-      schemaManagerContractAddress: this.schemaManagerContractAddress,
-      fileServerToken: this.fileServerToken,
-      serverUrl: this.fileServerUrl,
-      signingKey,
-    })
   }
 
   private async getSigningKey(wallet: Wallet, publicKeyBase58: string): Promise<SigningKey> {
@@ -138,5 +232,23 @@ export class EthereumLedgerService {
 
   public async resolveDID(did: string) {
     return await this.resolver.resolve(did)
+  }
+
+  /**
+   * Validates the configuration object
+   */
+  private validateConfig(config: EthereumModuleConfig): void {
+    if (!config.rpcUrl?.trim()) {
+      throw new EthereumLedgerError('RPC URL is required and cannot be empty')
+    }
+    if (!config.schemaManagerContractAddress?.trim()) {
+      throw new EthereumLedgerError('Schema manager contract address is required')
+    }
+    if (!config.fileServerToken?.trim()) {
+      throw new EthereumLedgerError('File server token is required')
+    }
+    if (!config.serverUrl?.trim()) {
+      throw new EthereumLedgerError('Server URL is required')
+    }
   }
 }
