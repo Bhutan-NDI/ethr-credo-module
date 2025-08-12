@@ -104,7 +104,7 @@ describe('Admin Schema Management:', () => {
     schemaJSON = JSON.stringify(testSchemaSample)
     const schemaRegistryAdminConfig = {
       signingKey: new SigningKey('0xc0fe3af6dc7188d1badd556303c8e3f1d60c19df3d84a380a16335a2d9a9c65e'),
-      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/XUo--fMnn250sIOxldOhx1J9-rput18B',
+      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
       contractAddress: '0x70F88e12EaE54548839f320A5958C49421512A84',
     }
     admin = new EthereumSchemaRegistry(schemaRegistryAdminConfig)
