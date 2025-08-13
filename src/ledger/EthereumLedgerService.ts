@@ -22,15 +22,15 @@ export class EthereumLedgerError extends CredoError {
 }
 
 export class SchemaCreationError extends EthereumLedgerError {
-  public constructor(did: string, reason: string, cause?: Error) {
-    super(`Schema creation failed for DID: ${did}. Reason: ${reason}`, cause)
+  public constructor(reason: string, cause?: Error) {
+    super(`Schema creation failed. Reason: ${reason}`, cause)
     this.name = 'SchemaCreationError'
   }
 }
 
 export class SchemaRetrievalError extends EthereumLedgerError {
-  public constructor(did: string, schemaId: string, reason: string, cause?: Error) {
-    super(`Schema retrieval failed for DID: ${did}, Schema ID: ${schemaId}. Reason: ${reason}`, cause)
+  public constructor(schemaId: string, reason: string, cause?: Error) {
+    super(`Schema retrieval failed for Schema ID: ${schemaId}. Reason: ${reason}`, cause)
     this.name = 'SchemaRetrievalError'
   }
 }
@@ -73,13 +73,13 @@ export class EthereumLedgerService {
   ): Promise<SchemaCreationResult> {
     // Validate inputs
     if (!did?.trim()) {
-      throw new SchemaCreationError(did, 'DID is required and cannot be empty')
+      throw new SchemaCreationError('DID is required and cannot be empty')
     }
     if (!schemaName?.trim()) {
-      throw new SchemaCreationError(did, 'Schema name is required and cannot be empty')
+      throw new SchemaCreationError('Schema name is required and cannot be empty')
     }
     if (!schema || Object.keys(schema).length === 0) {
-      throw new SchemaCreationError(did, 'Schema must be a valid object and not empty')
+      throw new SchemaCreationError('Schema must be a valid object and not empty')
     }
 
     agentContext.config.logger.info(`Creating schema on ledger: ${did}`)
@@ -111,7 +111,13 @@ export class EthereumLedgerService {
 
       // Handle blockchain response
       if (blockchainResponse.status === 'rejected') {
-        throw new SchemaCreationError(did, 'Blockchain transaction failed', blockchainResponse.reason)
+        // Detect insufficient funds error
+        const reason = blockchainResponse.reason
+        const errMsg = (reason?.message || reason?.toString() || '').toLowerCase()
+        if (errMsg.includes('insufficient funds') || errMsg.includes('insufficient balance')) {
+          throw new SchemaCreationError('Insufficient funds to pay for gas fees', reason)
+        }
+        throw new SchemaCreationError('Blockchain transaction failed', blockchainResponse.reason)
       }
 
       // Handle file server response
@@ -124,7 +130,7 @@ export class EthereumLedgerService {
 
       const result = blockchainResponse.value
       if (!result.hash) {
-        throw new SchemaCreationError(did, 'Invalid response from blockchain')
+        throw new SchemaCreationError('Invalid response from blockchain')
       }
 
       const response: SchemaCreationResult = {
@@ -145,17 +151,17 @@ export class EthereumLedgerService {
       // Wrap other errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       agentContext.config.logger.error(`Schema creation failed for DID: ${did}`, error)
-      throw new SchemaCreationError(did, errorMessage, error instanceof Error ? error : undefined)
+      throw new SchemaCreationError(errorMessage, error instanceof Error ? error : undefined)
     }
   }
 
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
     // Validate inputs
     if (!did?.trim()) {
-      throw new SchemaRetrievalError(did, schemaId, 'DID is required and cannot be empty')
+      throw new SchemaRetrievalError(schemaId, 'DID is required and cannot be empty')
     }
     if (!schemaId?.trim()) {
-      throw new SchemaRetrievalError(did, schemaId, 'Schema ID is required and cannot be empty')
+      throw new SchemaRetrievalError(schemaId, 'Schema ID is required and cannot be empty')
     }
 
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
@@ -170,7 +176,7 @@ export class EthereumLedgerService {
       const response = await ethSchemaRegistry.getSchemaById(address, schemaId)
 
       if (!response) {
-        throw new SchemaRetrievalError(did, schemaId, 'Schema not found on ledger')
+        throw new SchemaRetrievalError(schemaId, 'Schema not found on ledger')
       }
       return response
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -181,7 +187,7 @@ export class EthereumLedgerService {
       // Wrap other errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       agentContext.config.logger.error(`Schema retrieval failed for DID: ${did}, Schema ID: ${schemaId}`, error)
-      throw new SchemaRetrievalError(did, schemaId, errorMessage, error instanceof Error ? error : undefined)
+      throw new SchemaRetrievalError(schemaId, errorMessage, error instanceof Error ? error : undefined)
     }
   }
 
