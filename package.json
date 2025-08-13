@@ -22,7 +22,7 @@
     "prepublishOnly": "yarn run build",
     "check-types": "tsc --noEmit -p tsconfig.build.json",
     "check-format": "yarn prettier --check",
-    "prettier": "prettier --ignore-path .gitignore '**/*.+(js|json|ts|md|yml|yaml)'",
+    "prettier": "prettier --ignore-path .prettierignore '**/*.+(js|json|ts|md|yml|yaml)'",
     "test": "jest",
     "lint": "eslint --ignore-path .gitignore .",
     "release": "yarn build && yarn changeset publish --no-git-tag",
