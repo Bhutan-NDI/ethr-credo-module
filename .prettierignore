@@ -1,0 +1,7 @@
+# Node modules & build
+node_modules
+dist
+build
+
+# Ignore generated ABI
+src/abi/SchemaRegistry.json

@@ -9,7 +9,9 @@ import { Subject } from 'rxjs'
 
 import { EthereumModule } from '../src/EthereumModule'
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
+import { EthereumLedgerError, SchemaCreationError, SchemaRetrievalError } from '../src/ledger/EthereumLedgerService'
 
+import { testSchemaSample } from './fixtures'
 import { SubjectInboundTransport } from './transport/SubjectInboundTransport'
 import { SubjectOutboundTransport } from './transport/SubjectOutboundTransport'
 
@@ -21,63 +23,7 @@ const privateKey = TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f
 let did: string
 let schemaId: string
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const testSchema = {
-  '@context': [
-    {
-      '@version': 1.1,
-    },
-    'https://www.w3.org/ns/odrl.jsonld',
-    {
-      ex: 'https://example.org/examples#',
-      schema: 'http://schema.org/',
-      rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-      '3rdPartyCorrelation': 'ex:3rdPartyCorrelation',
-      AllVerifiers: 'ex:AllVerifiers',
-      Archival: 'ex:Archival',
-      BachelorDegree: 'ex:BachelorDegree',
-      Child: 'ex:Child',
-      CLCredentialDefinition2019: 'ex:CLCredentialDefinition2019',
-      CLSignature2019: 'ex:CLSignature2019',
-      IssuerPolicy: 'ex:IssuerPolicy',
-      HolderPolicy: 'ex:HolderPolicy',
-      Mother: 'ex:Mother',
-      RelationshipCredential: 'ex:RelationshipCredential',
-      UniversityDegreeCredential: 'ex:UniversityDegreeCredential',
-      AlumniCredential: 'ex:AlumniCredential',
-      DisputeCredential: 'ex:DisputeCredential',
-      PrescriptionCredential: 'ex:PrescriptionCredential',
-      ZkpExampleSchema2018: 'ex:ZkpExampleSchema2018',
-      issuerData: 'ex:issuerData',
-      attributes: 'ex:attributes',
-      signature: 'ex:signature',
-      signatureCorrectnessProof: 'ex:signatureCorrectnessProof',
-      primaryProof: 'ex:primaryProof',
-      nonRevocationProof: 'ex:nonRevocationProof',
-      alumniOf: { '@id': 'schema:alumniOf', '@type': 'rdf:HTML' },
-      child: { '@id': 'ex:child', '@type': '@id' },
-      degree: 'ex:degree',
-      degreeType: 'ex:degreeType',
-      degreeSchool: 'ex:degreeSchool',
-      college: 'ex:college',
-      name: { '@id': 'schema:name', '@type': 'rdf:HTML' },
-      givenName: 'schema:givenName',
-      familyName: 'schema:familyName',
-      parent: { '@id': 'ex:parent', '@type': '@id' },
-      referenceId: 'ex:referenceId',
-      documentPresence: 'ex:documentPresence',
-      evidenceDocument: 'ex:evidenceDocument',
-      spouse: 'schema:spouse',
-      subjectPresence: 'ex:subjectPresence',
-      verifier: { '@id': 'ex:verifier', '@type': '@id' },
-      currentStatus: 'ex:currentStatus',
-      statusReason: 'ex:statusReason',
-      prescription: 'ex:prescription',
-    },
-  ],
-}
-
-describe('Ethereum Module did resolver', () => {
+describe('Schema Operations', () => {
   let faberAgent: Agent<{ askar: AskarModule; ethereum: EthereumModule; dids: DidsModule }>
   let faberWalletId: string
   let faberWalletKey: string
@@ -113,16 +59,15 @@ describe('Ethereum Module did resolver', () => {
               {
                 name: 'sepolia',
                 chainId: 11155111,
-                rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
+                rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
                 registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
               },
             ],
           },
-          schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
-          serverUrl: 'http://localhost:4000/',
-          fileServerToken:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
-          rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
+          schemaManagerContractAddress: '0x70F88e12EaE54548839f320A5958C49421512A84',
+          serverUrl: 'FILE-SERVER-URL',
+          fileServerToken: 'FILE-SERVER-TOKEN',
+          rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
         }),
       },
     })
@@ -130,6 +75,18 @@ describe('Ethereum Module did resolver', () => {
     faberAgent.registerOutboundTransport(new SubjectOutboundTransport(subjectMap))
     faberAgent.registerInboundTransport(new SubjectInboundTransport(faberMessages))
     await faberAgent.initialize()
+
+    const createdDid = await faberAgent.dids.create<EthereumDidCreateOptions>({
+      method: 'ethr',
+      options: {
+        network: 'sepolia',
+      },
+      secret: {
+        privateKey,
+      },
+    })
+    did =
+      createdDid.didState.did || 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
   })
 
   afterAll(async () => {
@@ -145,40 +102,65 @@ describe('Ethereum Module did resolver', () => {
     }
   })
 
-  describe('EthereumSchema', () => {
-    it('EthereumSchema ---- create and resolve a did:ethr did', async () => {
-      const createdDid = await faberAgent.dids.create<EthereumDidCreateOptions>({
-        method: 'ethr',
-        options: {
-          network: 'sepolia',
-        },
-        secret: {
-          privateKey,
-        },
-      })
-      did =
-        createdDid.didState.did ||
-        'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
-    })
-
-    it('should create w3c schema', async () => {
+  describe('Schema Creation', () => {
+    it('should create w3c schema successfully', async () => {
       const response = await faberAgent.modules.ethereum.createSchema({
         did,
         schemaName: 'TestCollegeSchema',
-        schema: testSchema,
+        schema: testSchemaSample,
       })
       schemaId = response.schemaId
+
+      expect(response).toBeDefined()
+      expect(response.schemaId).toBeDefined()
+      expect(typeof response.schemaId).toBe('string')
+      expect(response.schemaTxnHash).toBeDefined()
     })
 
-    it('should resolve a schema by Id', async () => {
-      const schema = await faberAgent.modules.ethereum.getSchemaById(did, schemaId)
-      // eslint-disable-next-line no-console
-      console.log('EthereumSchema --- Get schema By id', schema)
+    it('should handle schema creation with invalid data', async () => {
+      // Test with empty schema name
+      await expect(
+        faberAgent.modules.ethereum.createSchema({
+          did,
+          schemaName: '',
+          schema: testSchemaSample,
+        })
+      ).rejects.toThrow(SchemaCreationError)
+
+      // Test with invalid schema structure
+      await expect(
+        faberAgent.modules.ethereum.createSchema({
+          did,
+          schemaName: 'InvalidSchema',
+          schema: {},
+        })
+      ).rejects.toThrow(SchemaCreationError)
     })
 
-    it('should resolve a ethereum did with metadata', async () => {
-      const resolvedDIDDoc = await faberAgent.dids.resolve(did)
-      faberAgent.config.logger.info('resolvedDIDDoc', resolvedDIDDoc)
+    it('should handle schema creation with invalid DID', async () => {
+      const nonExistentDid = 'did:ethr:sepolia:0x1111111111111111111111111111111111111111'
+      await expect(
+        faberAgent.modules.ethereum.createSchema({
+          did: nonExistentDid,
+          schemaName: 'TestSchema',
+          schema: testSchemaSample,
+        })
+      ).rejects.toThrow(EthereumLedgerError)
+    })
+  })
+
+  describe('Schema Retrieval', () => {
+    it('should retrieve created schemas by ID', async () => {
+      const retrievedSchema = await faberAgent.modules.ethereum.getSchemaById(did, schemaId)
+      expect(retrievedSchema).toBeDefined()
+      expect(typeof JSON.parse(retrievedSchema)).toBe('object')
+    })
+
+    it('should handle retrieval of non-existent schema', async () => {
+      const nonExistentSchemaId = 'non-existent-schema-id'
+      await expect(faberAgent.modules.ethereum.getSchemaById(did, nonExistentSchemaId)).rejects.toThrow(
+        SchemaRetrievalError
+      )
     })
   })
 })
