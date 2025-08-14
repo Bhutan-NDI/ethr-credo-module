@@ -1,8 +1,8 @@
 {
-  "name": "@ayanworks/credo-ethr-module",
+  "name": "@bhutan-ndi/ethr-credo-module",
   "main": "build/index",
   "types": "build/index",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "files": [
     "build"
   ],
@@ -10,10 +10,10 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/ayanworks/credo-ethr-module",
+  "homepage": "https://github.com/Bhutan-NDI/ethr-credo-module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ayanworks/credo-ethr-module"
+    "url": "https://github.com/Bhutan-NDI/ethr-credo-module"
   },
   "scripts": {
     "build": "yarn run clean && yarn run compile",
