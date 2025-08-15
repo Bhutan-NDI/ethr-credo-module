@@ -48,15 +48,12 @@ export interface SchemaCreateOptions {
 
 @injectable()
 export class EthereumLedgerService {
-  public readonly rpcUrl: string
-  private readonly schemaManagerContractAddress: string
-  private readonly fileServerToken: string
-  private readonly fileServerUrl: string
+  public readonly rpcUrl: string | undefined
+  private readonly schemaManagerContractAddress: string | undefined
+  private readonly fileServerToken: string | undefined
+  private readonly fileServerUrl: string | undefined
   public readonly resolver: Resolver
   public constructor(config: EthereumModuleConfig) {
-    // Validate configuration
-    this.validateConfig(config)
-
     this.resolver = new Resolver(getResolver(config.config))
     this.rpcUrl = config.rpcUrl
     this.schemaManagerContractAddress = config.schemaManagerContractAddress
@@ -71,6 +68,11 @@ export class EthereumLedgerService {
     agentContext: AgentContext,
     { did, schemaName, schema }: SchemaCreateOptions
   ): Promise<SchemaCreationResult> {
+    if (!this.schemaManagerContractAddress || !this.rpcUrl || !this.fileServerUrl || !this.fileServerToken) {
+      throw new SchemaCreationError(
+        'schemaManagerContractAddress, rpcUrl, fileServeUrl and fileServerToken must be defined and not empty'
+      )
+    }
     // Validate inputs
     if (!did?.trim()) {
       throw new SchemaCreationError('DID is required and cannot be empty')
@@ -166,6 +168,9 @@ export class EthereumLedgerService {
 
     agentContext.config.logger.info(`Getting schema from ledger: ${did} and schemaId: ${schemaId}`)
     try {
+      if (!this.schemaManagerContractAddress || !this.rpcUrl) {
+        throw new SchemaCreationError('schemaManagerContractAddress and rpcUrl must be defined and not empty')
+      }
       const ethSchemaRegistry = new EthereumSchemaRegistry({
         contractAddress: this.schemaManagerContractAddress,
         rpcUrl: this.rpcUrl,
@@ -238,23 +243,5 @@ export class EthereumLedgerService {
 
   public async resolveDID(did: string) {
     return await this.resolver.resolve(did)
-  }
-
-  /**
-   * Validates the configuration object
-   */
-  private validateConfig(config: EthereumModuleConfig): void {
-    if (!config.rpcUrl?.trim()) {
-      throw new EthereumLedgerError('RPC URL is required and cannot be empty')
-    }
-    if (!config.schemaManagerContractAddress?.trim()) {
-      throw new EthereumLedgerError('Schema manager contract address is required')
-    }
-    if (!config.fileServerToken?.trim()) {
-      throw new EthereumLedgerError('File server token is required')
-    }
-    if (!config.serverUrl?.trim()) {
-      throw new EthereumLedgerError('Server URL is required')
-    }
   }
 }

@@ -5,17 +5,17 @@ import type { ConfigurationOptions } from 'ethr-did-resolver/lib/configuration'
  */
 export interface EthereumModuleConfigOptions {
   config: ConfigurationOptions
-  rpcUrl: string
-  fileServerToken: string
-  schemaManagerContractAddress: string
-  serverUrl: string
+  rpcUrl?: string
+  fileServerToken?: string
+  schemaManagerContractAddress?: string
+  serverUrl?: string
 }
 
 export class EthereumModuleConfig {
-  public rpcUrl: string
-  public fileServerToken: string
-  public schemaManagerContractAddress: string
-  public serverUrl: string
+  public rpcUrl: string | undefined
+  public fileServerToken: string | undefined
+  public schemaManagerContractAddress: string | undefined
+  public serverUrl: string | undefined
   public readonly config: ConfigurationOptions
 
   public constructor({
