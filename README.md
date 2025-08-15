@@ -5,7 +5,7 @@
 ## Usage
 
 ```ts
-import { EthereumDidResolver, EthereumDidRegistrar, EthereumModule } from 'credo-ethr-module'
+import { EthereumDidResolver, EthereumDidRegistrar, EthereumModule } from '@bhutan-ndi/ethr-credo-module'
 
 const agent = new Agent({
   config: {
@@ -26,5 +26,6 @@ const agent = new Agent({
       schemaManagerContractAddress: 'schemaManagerContractAddress' // ethereum schema manager contract address,
       serverUrl: 'serverUrl' // ethereum file server url,
     }),
+  }
 })
 ```
