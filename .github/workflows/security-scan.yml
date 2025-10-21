@@ -1,0 +1,59 @@
+name: Security Scan
+
+on:
+  workflow_dispatch: # manual trigger
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Install dependencies based on detected package manager
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      # Run audit depending on package manager
+      - name: Dependency Audit
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm audit --audit-level=moderate || true
+          elif [ -f yarn.lock ]; then
+            yarn audit --level moderate || true
+          else
+            npm audit --audit-level=moderate || true
+          fi
+
+      # Static analysis using Semgrep (OWASP + TypeScript)
+      - name: Run Semgrep Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/owasp-top-ten,p/javascript,p/typescript"
+
+      # Container / filesystem vulnerability scan using Trivy
+      - name: Run Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          ignore-unfixed: true
+          format: "table"
+
+      # Optional ESLint security rule check
+      - name: Run ESLint (security rules)
+        run: npx eslint . --ext .ts,.js || true
