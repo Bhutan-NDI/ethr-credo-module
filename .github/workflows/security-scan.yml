@@ -1,0 +1,1638 @@
+name: Security Scan
+
+on:
+  workflow_dispatch: # Manual trigger
+    inputs:
+      scan_level:
+        description: 'Security scan level'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - quick
+  push:
+    branches:
+      - main
+      - develop
+      - 'feat/**'  # Allow feature branches for testing
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  pages: write
+  id-token: write
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.19.0
+          cache: 'npm'
+
+      # Create reports directory
+      - name: Create reports directory
+        run: mkdir -p security-reports
+
+      # Install dependencies based on detected package manager
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            corepack enable
+            pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      # Run audit depending on package manager - FIXED VERSION
+      - name: Dependency Audit
+        id: audit
+        continue-on-error: true
+        run: |
+          echo "## Dependency Audit Results" >> $GITHUB_STEP_SUMMARY
+          
+          # Initialize with empty structure
+          echo '{"vulnerabilities":[],"metadata":{"vulnerabilities":{"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}}}' > security-reports/audit-report.json
+          
+          # Create a Node.js script
+          cat > security-reports/process-audit.js << 'ENDOFFILE'
+          const fs = require('fs');
+          
+          const packageManager = process.argv[2];
+          const rawFile = 'security-reports/audit-raw.json';
+          const outputFile = 'security-reports/audit-report.json';
+          
+          function createEmptyReport() {
+            return {
+              vulnerabilities: [],
+              metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 } }
+            };
+          }
+          
+          try {
+            if (!fs.existsSync(rawFile) || fs.statSync(rawFile).size === 0) {
+              fs.writeFileSync(outputFile, JSON.stringify(createEmptyReport(), null, 2));
+              console.log('No audit data found');
+              process.exit(0);
+            }
+            
+            const rawData = fs.readFileSync(rawFile, 'utf8');
+            
+            let vulnerabilities = [];
+            let summary = { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 };
+            
+            if (packageManager === 'pnpm') {
+              try {
+                const data = JSON.parse(rawData);
+                if (data.advisories && typeof data.advisories === 'object') {
+                  Object.values(data.advisories).forEach(adv => {
+                    const severity = (adv.severity || 'moderate').toLowerCase();
+                    vulnerabilities.push({
+                      name: adv.module_name,
+                      severity: severity,
+                      title: adv.title || 'N/A',
+                      range: adv.findings?.[0]?.version || 'N/A',
+                      via: [{ title: adv.title, url: adv.url }]
+                    });
+                    
+                    if (summary[severity] !== undefined) summary[severity]++;
+                    summary.total++;
+                  });
+                }
+              } catch (e) {
+                console.log('Failed to parse pnpm audit JSON');
+              }
+              
+            } else if (packageManager === 'yarn') {
+              // Yarn uses NDJSON format - each line is a separate JSON object
+              const lines = rawData.split('\n').filter(line => line.trim());
+              
+              lines.forEach(line => {
+                try {
+                  const lineData = JSON.parse(line);
+                  if (lineData.type === 'auditAdvisory') {
+                    const adv = lineData.data.advisory;
+                    const severity = (adv.severity || 'moderate').toLowerCase();
+                    vulnerabilities.push({
+                      name: adv.module_name,
+                      severity: severity,
+                      title: adv.title || 'N/A',
+                      range: adv.findings?.[0]?.version || 'N/A',
+                      via: [{ title: adv.title, url: adv.url }]
+                    });
+                    
+                    if (summary[severity] !== undefined) summary[severity]++;
+                    summary.total++;
+                  }
+                } catch (e) {
+                  // Skip invalid lines - this is normal for yarn audit output
+                }
+              });
+              
+              console.log('Processed ' + vulnerabilities.length + ' vulnerabilities from yarn audit');
+              
+            } else if (packageManager === 'npm') {
+              try {
+                const data = JSON.parse(rawData);
+                if (data.vulnerabilities) {
+                  if (Array.isArray(data.vulnerabilities)) {
+                    vulnerabilities = data.vulnerabilities.map(vuln => ({
+                      name: vuln.name || 'Unknown',
+                      severity: (vuln.severity || 'low').toLowerCase(),
+                      title: vuln.title || (vuln.via && vuln.via[0] && vuln.via[0].title) || 'N/A',
+                      range: vuln.range || 'N/A',
+                      via: vuln.via || []
+                    }));
+                  } else if (typeof data.vulnerabilities === 'object') {
+                    vulnerabilities = Object.entries(data.vulnerabilities).map(([name, vuln]) => ({
+                      name: name,
+                      severity: (vuln.severity || 'low').toLowerCase(),
+                      title: (vuln.via && vuln.via[0] && vuln.via[0].title) || vuln.name || 'N/A',
+                      range: vuln.range || 'N/A',
+                      via: vuln.via || []
+                    }));
+                  }
+                  
+                  vulnerabilities.forEach(vuln => {
+                    const severity = vuln.severity;
+                    if (summary[severity] !== undefined) summary[severity]++;
+                    summary.total++;
+                  });
+                }
+                
+                if (data.metadata && data.metadata.vulnerabilities) {
+                  summary = Object.assign(summary, data.metadata.vulnerabilities);
+                }
+              } catch (e) {
+                console.log('Failed to parse npm audit JSON');
+              }
+            }
+            
+            const report = {
+              vulnerabilities: vulnerabilities,
+              metadata: { vulnerabilities: summary }
+            };
+            
+            fs.writeFileSync(outputFile, JSON.stringify(report, null, 2));
+            console.log('Successfully processed ' + vulnerabilities.length + ' vulnerabilities for ' + packageManager);
+            
+          } catch (error) {
+            console.log('Error in audit processing');
+            fs.writeFileSync(outputFile, JSON.stringify(createEmptyReport(), null, 2));
+          }
+          ENDOFFILE
+          
+          # Run the appropriate package manager audit
+          if [ -f pnpm-lock.yaml ]; then
+            echo "Using pnpm..." >> $GITHUB_STEP_SUMMARY
+            pnpm audit --audit-level=moderate --json > security-reports/audit-raw.json 2>&1 || true
+            node security-reports/process-audit.js pnpm
+            
+            # Show brief summary
+            echo "### pnpm Audit Summary:" >> $GITHUB_STEP_SUMMARY
+            pnpm audit --audit-level=moderate 2>&1 | grep -E "(Critical|High|Moderate|Low)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            
+          elif [ -f yarn.lock ]; then
+            echo "Using yarn..." >> $GITHUB_STEP_SUMMARY
+            # Run yarn audit and capture output
+            yarn audit --level moderate --json > security-reports/audit-raw.json 2>&1 || true
+            
+            # Check if we got any data
+            if [ -s security-reports/audit-raw.json ]; then
+              echo "Yarn audit completed, processing results..." >> $GITHUB_STEP_SUMMARY
+              node security-reports/process-audit.js yarn
+            else
+              echo "Yarn audit produced no output" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "### yarn Audit Summary:" >> $GITHUB_STEP_SUMMARY
+            yarn audit --level moderate 2>&1 | grep -E "(Critical|High|Moderate|Low)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            
+          elif [ -f package-lock.json ] || [ -f package.json ]; then
+            echo "Using npm..." >> $GITHUB_STEP_SUMMARY
+            npm audit --audit-level=moderate --json > security-reports/audit-raw.json 2>&1 || true
+            node security-reports/process-audit.js npm
+            
+            echo "### npm Audit Summary:" >> $GITHUB_STEP_SUMMARY
+            npm audit --audit-level=moderate 2>&1 | grep -E "(Critical|High|Moderate|Low)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            
+          else
+            echo "No package manager lock file found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Show final count
+          if [ -f security-reports/audit-report.json ]; then
+            TOTAL_VULNS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('security-reports/audit-report.json')).metadata.vulnerabilities.total || 0)")
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Total vulnerabilities: $TOTAL_VULNS**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Could not generate audit report**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Static analysis using Semgrep (OWASP + TypeScript)
+      - name: Run Semgrep Scan (Docker)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            returntocorp/semgrep:latest \
+            semgrep ci \
+              --config=p/default \
+              --config=p/javascript \
+              --config=p/typescript \
+              --config=p/nodejs \
+              --config=p/owasp-top-ten \
+              --json \
+              --json-output=security-reports/semgrep-report.json \
+              --timeout=0 || true
+        continue-on-error: true
+
+      # Container / filesystem vulnerability scan using Trivy
+      - name: Run Trivy Scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          ignore-unfixed: true
+          format: "sarif"
+          output: "security-reports/trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+        continue-on-error: true
+
+      # Trivy JSON format for HTML report
+      - name: Run Trivy Scan (JSON)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          ignore-unfixed: true
+          format: "json"
+          output: "security-reports/trivy-report.json"
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+        continue-on-error: true
+
+      # Upload Trivy SARIF results to GitHub Security tab
+      - name: Upload Trivy results to GitHub Security
+        if: always() && hashFiles('security-reports/trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "security-reports/trivy-results.sarif"
+          category: "trivy-scan"
+        continue-on-error: true
+
+      # Secret scanning with Gitleaks
+      - name: Run Gitleaks Secret Scan (Docker)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/path" \
+            -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+            -e GITLEAKS_LICENSE="${GITLEAKS_LICENSE}" \
+            zricethezav/gitleaks:latest detect \
+            --source="/path" \
+            --report-format="json" \
+            --report-path="/path/security-reports/gitleaks-report.json" \
+            --redact || true
+        continue-on-error: true
+
+      # Optional ESLint security rule check - QUIET VERSION
+      - name: Run ESLint (security rules)
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "Checking for ESLint config..."
+          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f eslint.config.js ] || [ -f .eslintrc.yml ]; then
+            echo "ESLint config found, running scan..."
+            npx eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file security-reports/eslint-results.json 2>/dev/null || true
+            echo "ESLint scan completed"
+          else
+            echo "No ESLint config found, skipping..."
+            echo "[]" > security-reports/eslint-results.json
+          fi
+
+      # Scan installed dependencies for given vulnerable packages
+      - name: Scan for Known Vulnerable Packages
+        if: always()
+        run: |
+          cat > security-reports/scan-vulnerable-packages.js << 'EOFJS'
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+
+          // Read vulnerable packages list
+          function readVulnerablePackagesList() {
+            const vulnFilePath = 'vulnerable-packages.txt';
+            if (!fs.existsSync(vulnFilePath)) {
+              console.log('⚠️  No vulnerable-packages.txt file found. Skipping scan.');
+              return [];
+            }
+            
+            const content = fs.readFileSync(vulnFilePath, 'utf8');
+            const packages = [];
+            
+            content.split('\n').forEach(line => {
+              line = line.trim();
+              // Skip empty lines and comments
+              if (!line || line.startsWith('#')) return;
+              
+              // Handle multiple versions in one line (e.g., "package@1.0.0, @1.0.1, 1.0.2")
+              const parts = line.split(',').map(p => p.trim());
+              
+              parts.forEach(part => {
+                if (!part) return;
+                
+                // Match patterns:
+                // @scope/package@version
+                // @scope/package
+                // package@version
+                // package
+                // @version (continuation from previous package)
+                
+                if (part.startsWith('@') && !part.includes('/')) {
+                  // This is a continuation version (e.g., "@1.0.1")
+                  // Use the last package name
+                  if (packages.length > 0) {
+                    const lastPkg = packages[packages.length - 1];
+                    const version = part.substring(1); // Remove @
+                    packages.push({
+                      name: lastPkg.name,
+                      version: version,
+                      raw: `${lastPkg.name}${part}`
+                    });
+                  }
+                } else {
+                  // Parse full package specification
+                  let name, version;
+                  
+                  if (part.startsWith('@') && part.includes('/')) {
+                    // Scoped package: @scope/package@version or @scope/package
+                    const lastAt = part.lastIndexOf('@');
+                    if (lastAt > 0) {
+                      name = part.substring(0, lastAt);
+                      version = part.substring(lastAt + 1);
+                    } else {
+                      name = part;
+                      version = null;
+                    }
+                  } else {
+                    // Regular package: package@version or package
+                    const atIndex = part.indexOf('@');
+                    if (atIndex > 0) {
+                      name = part.substring(0, atIndex);
+                      version = part.substring(atIndex + 1);
+                    } else {
+                      name = part;
+                      version = null;
+                    }
+                  }
+                  
+                  if (name) {
+                    packages.push({
+                      name: name,
+                      version: version,
+                      raw: part
+                    });
+                  }
+                }
+              });
+            });
+            
+            return packages;
+          }
+
+          // Detect package manager
+          function detectPackageManager() {
+            if (fs.existsSync('pnpm-lock.yaml')) return 'pnpm';
+            if (fs.existsSync('yarn.lock')) return 'yarn';
+            if (fs.existsSync('package-lock.json')) return 'npm';
+            return 'npm'; // default
+          }
+
+          // Read directly from lock files - most reliable method
+          function getPackagesFromLockFiles() {
+            console.log('📖 Reading packages from lock files and package.json...');
+            const packages = new Map();
+            
+            try {
+              // Read package.json for direct dependencies
+              if (fs.existsSync('package.json')) {
+                console.log('   Reading package.json...');
+                const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+                
+                // Add direct dependencies
+                if (pkg.dependencies) {
+                  Object.entries(pkg.dependencies).forEach(([name, version]) => {
+                    const cleanVersion = version.replace(/^[\^~>=<]/, '').split(/[\s@]/)[0];
+                    packages.set(name, cleanVersion);
+                  });
+                }
+                
+                if (pkg.devDependencies) {
+                  Object.entries(pkg.devDependencies).forEach(([name, version]) => {
+                    const cleanVersion = version.replace(/^[\^~>=<]/, '').split(/[\s@]/)[0];
+                    packages.set(name, cleanVersion);
+                  });
+                }
+                console.log(`   Found ${packages.size} direct dependencies in package.json`);
+              }
+              
+              // Read package-lock.json for all dependencies including transitive
+              if (fs.existsSync('package-lock.json')) {
+                console.log('   Reading package-lock.json...');
+                const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+                
+                // npm v7+ format
+                if (lock.packages) {
+                  Object.entries(lock.packages).forEach(([pkgPath, info]) => {
+                    if (pkgPath && pkgPath !== '') {
+                      const name = pkgPath.replace(/^node_modules\//, '');
+                      if (info.version && !name.includes('node_modules')) {
+                        packages.set(name, info.version);
+                      }
+                    }
+                  });
+                }
+                
+                // npm v6 format
+                if (lock.dependencies) {
+                  function traverse(deps) {
+                    Object.entries(deps).forEach(([name, info]) => {
+                      if (info.version) {
+                        packages.set(name, info.version);
+                      }
+                      if (info.dependencies) {
+                        traverse(info.dependencies);
+                      }
+                    });
+                  }
+                  traverse(lock.dependencies);
+                }
+                console.log(`   Total packages after package-lock.json: ${packages.size}`);
+              }
+              
+              // Read yarn.lock
+              if (fs.existsSync('yarn.lock')) {
+                console.log('   Reading yarn.lock...');
+                const lockContent = fs.readFileSync('yarn.lock', 'utf8');
+                const lines = lockContent.split('\n');
+                let currentPackage = null;
+                
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i];
+                  
+                  // Match package declaration: "package@version", package@version, or "@scope/package@version"
+                  if (line.match(/^"?[^:\s]+@/)) {
+                    const match = line.match(/^"?([^@\s"]+)(?:@[^"]*)?[":]?/);
+                    if (match) {
+                      currentPackage = match[1];
+                    }
+                  }
+                  
+                  // Match version line
+                  if (line.match(/^\s+version\s+"([^"]+)"/) && currentPackage) {
+                    const versionMatch = line.match(/^\s+version\s+"([^"]+)"/);
+                    if (versionMatch) {
+                      packages.set(currentPackage, versionMatch[1]);
+                    }
+                  }
+                }
+                console.log(`   Total packages after yarn.lock: ${packages.size}`);
+              }
+              
+              // Read pnpm-lock.yaml
+              if (fs.existsSync('pnpm-lock.yaml')) {
+                console.log('   Reading pnpm-lock.yaml...');
+                const lockContent = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+                const lines = lockContent.split('\n');
+                
+                // Parse packages section
+                let inPackagesSection = false;
+                let currentPackage = null;
+                
+                for (let i = 0; i < lines.length; i++) {
+                  const line = lines[i];
+                  
+                  if (line.trim() === 'packages:') {
+                    inPackagesSection = true;
+                    continue;
+                  }
+                  
+                  if (inPackagesSection) {
+                    // Match package entry like "  /@babel/code-frame@7.24.2:"
+                    const pkgMatch = line.match(/^\s{2,4}['"\/]?(@?[^@'":\s]+)@([^'":\s]+)['":]?:/);
+                    if (pkgMatch) {
+                      const name = pkgMatch[1];
+                      const version = pkgMatch[2];
+                      packages.set(name, version);
+                    }
+                    
+                    // Also match the simpler format in dependencies
+                    const depMatch = line.match(/^\s+['"]?(@?[^@'"\s]+)['"]?:\s+(.+)/);
+                    if (depMatch && !line.includes(':')) {
+                      currentPackage = depMatch[1];
+                    }
+                    
+                    // Match version in dependencies section
+                    const versionMatch = line.match(/^\s+version:\s+([^\s]+)/);
+                    if (versionMatch && currentPackage) {
+                      const version = versionMatch[1].replace(/[()]/g, '');
+                      packages.set(currentPackage, version);
+                    }
+                  }
+                }
+                console.log(`   Total packages after pnpm-lock.yaml: ${packages.size}`);
+              }
+              
+              // Also check node_modules directory directly as last resort
+              if (packages.size === 0 && fs.existsSync('node_modules')) {
+                console.log('   Scanning node_modules directory...');
+                scanNodeModules('node_modules', packages);
+                console.log(`   Total packages after node_modules scan: ${packages.size}`);
+              }
+              
+            } catch (error) {
+              console.error('   Error reading package files:', error.message);
+            }
+            
+            return Array.from(packages.entries()).map(([name, version]) => ({
+              name,
+              version: version.replace(/^v/, '')
+            }));
+          }
+
+          // Recursively scan node_modules
+          function scanNodeModules(dir, packages, depth = 0) {
+            if (depth > 3) return; // Limit recursion depth
+            
+            try {
+              const items = fs.readdirSync(dir);
+              
+              items.forEach(item => {
+                if (item.startsWith('.')) return;
+                
+                const itemPath = path.join(dir, item);
+                
+                try {
+                  const stats = fs.statSync(itemPath);
+                  
+                  if (stats.isDirectory()) {
+                    // Check if this is a scoped package directory
+                    if (item.startsWith('@')) {
+                      const scopedPackages = fs.readdirSync(itemPath);
+                      scopedPackages.forEach(scopedPkg => {
+                        const pkgJsonPath = path.join(itemPath, scopedPkg, 'package.json');
+                        if (fs.existsSync(pkgJsonPath)) {
+                          try {
+                            const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+                            if (pkgJson.name && pkgJson.version) {
+                              packages.set(pkgJson.name, pkgJson.version);
+                            }
+                          } catch (e) {}
+                        }
+                      });
+                    } else {
+                      // Regular package
+                      const pkgJsonPath = path.join(itemPath, 'package.json');
+                      if (fs.existsSync(pkgJsonPath)) {
+                        try {
+                          const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+                          if (pkgJson.name && pkgJson.version) {
+                            packages.set(pkgJson.name, pkgJson.version);
+                          }
+                        } catch (e) {}
+                      }
+                      
+                      // Check nested node_modules
+                      const nestedModules = path.join(itemPath, 'node_modules');
+                      if (fs.existsSync(nestedModules)) {
+                        scanNodeModules(nestedModules, packages, depth + 1);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // Skip items we can't access
+                }
+              });
+            } catch (error) {
+              console.error(`   Error scanning ${dir}:`, error.message);
+            }
+          }
+
+          // Compare versions
+          function versionMatches(installed, vulnerable) {
+            if (!vulnerable) return true; // If no version specified, match any version
+            
+            // Clean up versions
+            installed = installed.replace(/^v/, '');
+            vulnerable = vulnerable.replace(/^v/, '');
+            
+            // Simple version matching
+            if (vulnerable === '*') return true;
+            
+            // Exact match
+            if (installed === vulnerable) return true;
+            
+            // Range matching
+            if (vulnerable.includes('||')) {
+              return vulnerable.split('||').some(v => versionMatches(installed, v.trim()));
+            }
+            
+            if (vulnerable.startsWith('>=')) {
+              const targetVer = vulnerable.substring(2).trim();
+              return compareVersions(installed, targetVer) >= 0;
+            }
+            
+            if (vulnerable.startsWith('<=')) {
+              const targetVer = vulnerable.substring(2).trim();
+              return compareVersions(installed, targetVer) <= 0;
+            }
+            
+            if (vulnerable.startsWith('>')) {
+              const targetVer = vulnerable.substring(1).trim();
+              return compareVersions(installed, targetVer) > 0;
+            }
+            
+            if (vulnerable.startsWith('<')) {
+              const targetVer = vulnerable.substring(1).trim();
+              return compareVersions(installed, targetVer) < 0;
+            }
+            
+            if (vulnerable.includes('.x')) {
+              const prefix = vulnerable.replace('.x', '');
+              return installed.startsWith(prefix);
+            }
+            
+            return false;
+          }
+
+          // Simple version comparison
+          function compareVersions(v1, v2) {
+            const parts1 = v1.split(/[.-]/).map(p => parseInt(p) || 0);
+            const parts2 = v2.split(/[.-]/).map(p => parseInt(p) || 0);
+            
+            for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+              const p1 = parts1[i] || 0;
+              const p2 = parts2[i] || 0;
+              if (p1 > p2) return 1;
+              if (p1 < p2) return -1;
+            }
+            return 0;
+          }
+
+          // Main scanning logic
+          function scanForVulnerablePackages() {
+            console.log('🔍 Starting vulnerable packages scan...');
+            console.log('');
+            
+            const vulnerableList = readVulnerablePackagesList();
+            if (vulnerableList.length === 0) {
+              console.log('No vulnerable packages to scan for.');
+              return { matches: [], summary: { total: 0 } };
+            }
+            
+            console.log(`📋 Loaded ${vulnerableList.length} vulnerable package(s) from list`);
+            console.log('First 5 vulnerable packages:');
+            vulnerableList.slice(0, 5).forEach(pkg => {
+              console.log(`   - ${pkg.name}${pkg.version ? '@' + pkg.version : ''}`);
+            });
+            if (vulnerableList.length > 5) {
+              console.log(`   ... and ${vulnerableList.length - 5} more`);
+            }
+            console.log('');
+            
+            const packageManager = detectPackageManager();
+            console.log(`📦 Detected package manager: ${packageManager}`);
+            console.log('');
+            
+            const installedPackages = getPackagesFromLockFiles();
+            console.log(`📊 Found ${installedPackages.length} installed package(s)`);
+            console.log('');
+            
+            if (installedPackages.length > 0) {
+              console.log('First 10 installed packages:');
+              installedPackages.slice(0, 10).forEach(pkg => {
+                console.log(`   - ${pkg.name}@${pkg.version}`);
+              });
+              if (installedPackages.length > 10) {
+                console.log(`   ... and ${installedPackages.length - 10} more`);
+              }
+              console.log('');
+            } else {
+              console.log('⚠️  WARNING: No packages found! Check if node_modules or lock files exist.');
+              console.log('');
+            }
+            
+            console.log('🔍 Scanning for matches...');
+            const matches = [];
+            const checkedPackages = new Set();
+            
+            vulnerableList.forEach(vulnPkg => {
+              installedPackages.forEach(installed => {
+                if (installed.name === vulnPkg.name) {
+                  const matchKey = `${installed.name}@${installed.version}:${vulnPkg.version || 'any'}`;
+                  
+                  if (!checkedPackages.has(matchKey)) {
+                    checkedPackages.add(matchKey);
+                    
+                    if (versionMatches(installed.version, vulnPkg.version)) {
+                      matches.push({
+                        package: installed.name,
+                        installedVersion: installed.version,
+                        vulnerablePattern: vulnPkg.version || 'any',
+                        raw: vulnPkg.raw
+                      });
+                      console.log(`   ✗ MATCH: ${installed.name}@${installed.version} matches ${vulnPkg.raw}`);
+                    }
+                  }
+                }
+              });
+            });
+            
+            console.log('');
+            console.log(`⚠️  Found ${matches.length} vulnerable package(s) installed`);
+            
+            return {
+              matches,
+              summary: {
+                total: matches.length,
+                scanned: installedPackages.length,
+                vulnerableListSize: vulnerableList.length,
+                packageManager
+              }
+            };
+          }
+
+          // Run scan and save results
+          try {
+            const results = scanForVulnerablePackages();
+            
+            if (!fs.existsSync('security-reports')) {
+              fs.mkdirSync('security-reports', { recursive: true });
+            }
+            
+            fs.writeFileSync(
+              'security-reports/vulnerable-packages-report.json',
+              JSON.stringify(results, null, 2)
+            );
+            
+            console.log('');
+            console.log('✅ Vulnerable packages scan complete!');
+            console.log(`📄 Report saved to: security-reports/vulnerable-packages-report.json`);
+            
+            if (results.matches.length > 0) {
+              console.log('');
+              console.log('⚠️  WARNING: Vulnerable packages detected:');
+              results.matches.forEach(m => {
+                console.log(`   - ${m.package}@${m.installedVersion} (matches: ${m.vulnerablePattern})`);
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error during vulnerable packages scan:', error);
+            console.error(error.stack);
+            // Write empty report on error
+            fs.writeFileSync(
+              'security-reports/vulnerable-packages-report.json',
+              JSON.stringify({ matches: [], summary: { total: 0, error: error.message } }, null, 2)
+            );
+          }
+          EOFJS
+          
+          node security-reports/scan-vulnerable-packages.js
+
+      # Create report metadata
+      - name: Create Report Metadata
+        if: always()
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          WORKFLOW_RUN: ${{ github.run_number }}
+          TIMESTAMP: ${{ github.event.head_commit.timestamp }}
+          SCAN_LEVEL: ${{ github.event.inputs.scan_level || 'full' }}
+        run: |
+          cat > security-reports/metadata.json << EOF
+          {
+            "branch": "${BRANCH_NAME}",
+            "repository": "${REPOSITORY}",
+            "commit": "${COMMIT_SHA}",
+            "actor": "${ACTOR}",
+            "workflow_run": "${WORKFLOW_RUN}",
+            "timestamp": "${TIMESTAMP}",
+            "scan_level": "${SCAN_LEVEL}"
+          }
+          EOF
+
+      # Generate HTML Dashboard Report - FIXED VERSION
+      - name: Generate HTML Security Report
+        if: always()
+        run: |
+          cat > security-reports/generate-report.js << 'EOFJS'
+          const fs = require('fs');
+          const path = require('path');
+
+          function readJSONFile(filePath) {
+            try {
+              if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf8');
+                return JSON.parse(content);
+              }
+            } catch (e) {
+              console.error(`Error reading ${filePath}:`, e.message);
+            }
+            return null;
+          }
+
+          const metadata = readJSONFile('security-reports/metadata.json') || {};
+          const auditData = readJSONFile('security-reports/audit-report.json') || {};
+          const eslintData = readJSONFile('security-reports/eslint-results.json') || [];
+          const trivyData = readJSONFile('security-reports/trivy-report.json') || {};
+          const semgrepData = readJSONFile('security-reports/semgrep-report.json') || {};
+          const gitleaksData = readJSONFile('security-reports/gitleaks-report.json') || [];
+          const vulnPackagesData = readJSONFile('security-reports/vulnerable-packages-report.json') || { matches: [], summary: { total: 0 } };
+
+          console.log('Audit data structure:', {
+            hasVulnerabilities: !!auditData.vulnerabilities,
+            type: Array.isArray(auditData.vulnerabilities) ? 'array' : typeof auditData.vulnerabilities,
+            length: Array.isArray(auditData.vulnerabilities) ? auditData.vulnerabilities.length : 'N/A'
+          });
+
+          // Process Audit Data - FIXED VERSION
+          let auditSummary = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
+          let auditVulns = [];
+          
+          // Handle different audit data formats
+          if (auditData.vulnerabilities) {
+            if (Array.isArray(auditData.vulnerabilities)) {
+              auditData.vulnerabilities.forEach(vuln => {
+                const severity = (vuln.severity || 'low').toLowerCase();
+                auditVulns.push({
+                  name: vuln.name || 'Unknown',
+                  severity: severity,
+                  title: vuln.title || vuln.via?.[0]?.title || 'N/A',
+                  range: vuln.range || 'N/A',
+                  url: vuln.via?.[0]?.url || vuln.url || '#'
+                });
+                
+                if (auditSummary[severity] !== undefined) auditSummary[severity]++;
+                auditSummary.total++;
+              });
+            } else if (typeof auditData.vulnerabilities === 'object') {
+              // Object format (original npm format)
+              Object.entries(auditData.vulnerabilities).forEach(([name, data]) => {
+                const severity = (data.severity || 'low').toLowerCase();
+                auditVulns.push({
+                  name: name,
+                  severity: severity,
+                  title: data.via?.[0]?.title || data.name || 'N/A',
+                  range: data.range || 'N/A',
+                  url: data.via?.[0]?.url || '#'
+                });
+                
+                if (auditSummary[severity] !== undefined) auditSummary[severity]++;
+                auditSummary.total++;
+              });
+            }
+          }
+
+          // Use metadata if available, otherwise use our counted summary
+          if (auditData.metadata && auditData.metadata.vulnerabilities) {
+            const metadataVulns = auditData.metadata.vulnerabilities;
+            auditSummary = {
+              critical: metadataVulns.critical || auditSummary.critical,
+              high: metadataVulns.high || auditSummary.high,
+              moderate: metadataVulns.moderate || auditSummary.moderate,
+              low: metadataVulns.low || auditSummary.low,
+              info: metadataVulns.info || auditSummary.info,
+              total: metadataVulns.total || auditSummary.total
+            };
+          }
+
+          // Process ESLint Data
+          let eslintSummary = { error: 0, warning: 0, total: 0 };
+          let eslintIssues = [];
+          
+          if (Array.isArray(eslintData)) {
+            eslintData.forEach(file => {
+              if (file.messages && file.messages.length > 0) {
+                file.messages.forEach(msg => {
+                  const severity = msg.severity === 2 ? 'error' : 'warning';
+                  eslintIssues.push({
+                    file: file.filePath.replace(process.cwd(), ''),
+                    line: msg.line,
+                    column: msg.column,
+                    severity,
+                    message: msg.message,
+                    rule: msg.ruleId || 'unknown'
+                  });
+                  
+                  if (severity === 'error') eslintSummary.error++;
+                  else eslintSummary.warning++;
+                  eslintSummary.total++;
+                });
+              }
+            });
+          }
+
+          // Process Trivy Data
+          let trivySummary = { critical: 0, high: 0, medium: 0, low: 0, total: 0 };
+          let trivyVulns = [];
+          
+          if (trivyData.Results) {
+            trivyData.Results.forEach(result => {
+              if (result.Vulnerabilities) {
+                result.Vulnerabilities.forEach(vuln => {
+                  const severity = (vuln.Severity || 'UNKNOWN').toLowerCase();
+                  trivyVulns.push({
+                    target: result.Target,
+                    id: vuln.VulnerabilityID,
+                    package: vuln.PkgName,
+                    version: vuln.InstalledVersion,
+                    fixed: vuln.FixedVersion || 'N/A',
+                    severity: vuln.Severity,
+                    title: vuln.Title || vuln.Description || 'N/A'
+                  });
+                  
+                  if (trivySummary[severity] !== undefined) trivySummary[severity]++;
+                  trivySummary.total++;
+                });
+              }
+            });
+          }
+
+          // Process Semgrep Data
+          let semgrepSummary = { error: 0, warning: 0, info: 0, total: 0 };
+          let semgrepFindings = [];
+          
+          if (semgrepData.results) {
+            semgrepData.results.forEach(finding => {
+              const severity = finding.extra?.severity?.toLowerCase() || 'info';
+              semgrepFindings.push({
+                file: finding.path,
+                line: finding.start?.line || 0,
+                rule: finding.check_id,
+                message: finding.extra?.message || 'N/A',
+                severity: finding.extra?.severity || 'INFO'
+              });
+              
+              if (severity === 'error') semgrepSummary.error++;
+              else if (severity === 'warning') semgrepSummary.warning++;
+              else semgrepSummary.info++;
+              semgrepSummary.total++;
+            });
+          }
+
+          // Process Gitleaks Data
+          let gitleaksSummary = { critical: 0, total: 0 };
+          let gitleaksFindings = [];
+          if (Array.isArray(gitleaksData)) {
+            gitleaksFindings = gitleaksData.map(finding => ({
+              file: finding.File,
+              line: finding.StartLine,
+              rule: finding.RuleID,
+              secret: finding.Secret ? '***' + finding.Secret.slice(-4) : '***',
+              commit: finding.Commit?.slice(0, 7) || 'N/A'
+            }));
+            gitleaksSummary.total = gitleaksFindings.length;
+            gitleaksSummary.critical = gitleaksFindings.length;
+          }
+
+          // Process Vulnerable Packages Data
+          let vulnPackagesSummary = {
+            total: vulnPackagesData.summary?.total || 0,
+            scanned: vulnPackagesData.summary?.scanned || 0,
+            packageManager: vulnPackagesData.summary?.packageManager || 'unknown'
+          };
+          let vulnPackagesMatches = vulnPackagesData.matches || [];
+          const html = `<!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Security Scan Report - ${metadata.repository || 'Repository'}</title>
+              <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      min-height: 100vh;
+                      padding: 20px;
+                  }
+                  .container {
+                      max-width: 1400px;
+                      margin: 0 auto;
+                  }
+                  .header {
+                      background: white;
+                      padding: 30px;
+                      border-radius: 16px;
+                      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                      margin-bottom: 30px;
+                  }
+                  .header h1 {
+                      color: #1a202c;
+                      font-size: 32px;
+                      margin-bottom: 10px;
+                  }
+                  .metadata {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                      gap: 15px;
+                      margin-top: 20px;
+                  }
+                  .metadata-item {
+                      background: #f7fafc;
+                      padding: 12px;
+                      border-radius: 8px;
+                      border-left: 4px solid #667eea;
+                  }
+                  .metadata-label {
+                      font-size: 12px;
+                      color: #718096;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                  }
+                  .metadata-value {
+                      font-size: 14px;
+                      color: #2d3748;
+                      font-weight: 600;
+                      margin-top: 4px;
+                  }
+                  .dashboard {
+                      display: grid;
+                      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                      gap: 20px;
+                      margin-bottom: 30px;
+                  }
+                  .card {
+                      background: white;
+                      border-radius: 16px;
+                      padding: 25px;
+                      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                      transition: transform 0.2s, box-shadow 0.2s;
+                  }
+                  .card:hover {
+                      transform: translateY(-5px);
+                      box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+                  }
+                  .card-title {
+                      font-size: 18px;
+                      font-weight: 600;
+                      color: #2d3748;
+                      margin-bottom: 20px;
+                      display: flex;
+                      align-items: center;
+                      gap: 10px;
+                  }
+                  .icon {
+                      width: 24px;
+                      height: 24px;
+                  }
+                  .summary-grid {
+                      display: grid;
+                      grid-template-columns: repeat(2, 1fr);
+                      gap: 12px;
+                  }
+                  .summary-item {
+                      background: #f7fafc;
+                      padding: 15px;
+                      border-radius: 10px;
+                      text-align: center;
+                  }
+                  .summary-count {
+                      font-size: 32px;
+                      font-weight: 700;
+                      margin-bottom: 5px;
+                  }
+                  .summary-label {
+                      font-size: 13px;
+                      color: #718096;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                  }
+                  .critical { color: #9b2c2c; background: #fff5f5 !important; }
+                  .high { color: #c05621; background: #fffaf0 !important; }
+                  .medium, .moderate { color: #d69e2e; background: #fefcbf !important; }
+                  .low { color: #2c7a7b; background: #e6fffa !important; }
+                  .info { color: #2b6cb0; background: #ebf8ff !important; }
+                  .error { color: #9b2c2c; background: #fff5f5 !important; }
+                  .warning { color: #d69e2e; background: #fefcbf !important; }
+                  
+                  .details-section {
+                      background: white;
+                      border-radius: 16px;
+                      padding: 30px;
+                      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                      margin-bottom: 30px;
+                  }
+                  .section-title {
+                      font-size: 24px;
+                      font-weight: 700;
+                      color: #1a202c;
+                      margin-bottom: 20px;
+                      padding-bottom: 15px;
+                      border-bottom: 2px solid #e2e8f0;
+                  }
+                  .table-container {
+                      max-height: 600px;
+                      overflow-y: auto;
+                      overflow-x: auto;
+                      border: 1px solid #e2e8f0;
+                      border-radius: 8px;
+                      margin-top: 15px;
+                  }
+                  .table-container::-webkit-scrollbar {
+                      width: 10px;
+                      height: 10px;
+                  }
+                  .table-container::-webkit-scrollbar-track {
+                      background: #f7fafc;
+                      border-radius: 5px;
+                  }
+                  .table-container::-webkit-scrollbar-thumb {
+                      background: #cbd5e0;
+                      border-radius: 5px;
+                  }
+                  .table-container::-webkit-scrollbar-thumb:hover {
+                      background: #a0aec0;
+                  }
+                  table {
+                      width: 100%;
+                      border-collapse: collapse;
+                  }
+                  th {
+                      background: #f7fafc;
+                      padding: 12px;
+                      text-align: left;
+                      font-weight: 600;
+                      color: #4a5568;
+                      font-size: 13px;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                      position: sticky;
+                      top: 0;
+                      z-index: 10;
+                  }
+                  td {
+                      padding: 12px;
+                      border-bottom: 1px solid #e2e8f0;
+                      font-size: 14px;
+                      color: #2d3748;
+                  }
+                  tr:hover {
+                      background: #f7fafc;
+                  }
+                  .badge {
+                      display: inline-block;
+                      padding: 4px 12px;
+                      border-radius: 12px;
+                      font-size: 12px;
+                      font-weight: 600;
+                      text-transform: uppercase;
+                  }
+                  .no-issues {
+                      text-align: center;
+                      padding: 40px;
+                      color: #48bb78;
+                      font-size: 18px;
+                  }
+                  .total-badge {
+                      background: #667eea;
+                      color: white;
+                      padding: 8px 16px;
+                      border-radius: 20px;
+                      font-size: 14px;
+                      font-weight: 600;
+                      margin-left: auto;
+                  }
+                  .record-count {
+                      color: #718096;
+                      font-size: 14px;
+                      margin-top: 10px;
+                      font-style: italic;
+                  }
+                  code {
+                      background: #f7fafc;
+                      padding: 2px 6px;
+                      border-radius: 4px;
+                      font-size: 13px;
+                      font-family: 'Courier New', monospace;
+                  }
+                  .footer {
+                      text-align: center;
+                      color: white;
+                      margin-top: 40px;
+                      padding: 20px;
+                      opacity: 0.9;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>🔒 Security Scan Report</h1>
+                      <p style="color: #718096; margin-top: 10px;">Comprehensive security analysis of your repository</p>
+                      <div class="metadata">
+                          <div class="metadata-item">
+                              <div class="metadata-label">Repository</div>
+                              <div class="metadata-value">${metadata.repository || 'N/A'}</div>
+                          </div>
+                          <div class="metadata-item">
+                              <div class="metadata-label">Branch</div>
+                              <div class="metadata-value">${metadata.branch || 'N/A'}</div>
+                          </div>
+                          <div class="metadata-item">
+                              <div class="metadata-label">Scan Time</div>
+                              <div class="metadata-value">${new Date(metadata.timestamp || Date.now()).toLocaleString()}</div>
+                          </div>
+                          <div class="metadata-item">
+                              <div class="metadata-label">Triggered By</div>
+                              <div class="metadata-value">${metadata.actor || 'N/A'}</div>
+                          </div>
+                          <div class="metadata-item">
+                              <div class="metadata-label">Workflow Run</div>
+                              <div class="metadata-value">#${metadata.workflow_run || 'N/A'}</div>
+                          </div>
+                          <div class="metadata-item">
+                              <div class="metadata-label">Scan Level</div>
+                              <div class="metadata-value">${metadata.scan_level || 'full'}</div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div class="dashboard">
+                      <div class="card">
+                          <div class="card-title">
+                              📦 Dependency Audit
+                              ${auditSummary.total > 0 ? `<span class="total-badge">${auditSummary.total}</span>` : ''}
+                          </div>
+                          <div class="summary-grid">
+                              <div class="summary-item critical">
+                                  <div class="summary-count">${auditSummary.critical}</div>
+                                  <div class="summary-label">Critical</div>
+                              </div>
+                              <div class="summary-item high">
+                                  <div class="summary-count">${auditSummary.high}</div>
+                                  <div class="summary-label">High</div>
+                              </div>
+                              <div class="summary-item moderate">
+                                  <div class="summary-count">${auditSummary.moderate}</div>
+                                  <div class="summary-label">Moderate</div>
+                              </div>
+                              <div class="summary-item low">
+                                  <div class="summary-count">${auditSummary.low}</div>
+                                  <div class="summary-label">Low</div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="card">
+                          <div class="card-title">
+                              🔍 Trivy Vulnerabilities
+                              ${trivySummary.total > 0 ? `<span class="total-badge">${trivySummary.total}</span>` : ''}
+                          </div>
+                          <div class="summary-grid">
+                              <div class="summary-item critical">
+                                  <div class="summary-count">${trivySummary.critical}</div>
+                                  <div class="summary-label">Critical</div>
+                              </div>
+                              <div class="summary-item high">
+                                  <div class="summary-count">${trivySummary.high}</div>
+                                  <div class="summary-label">High</div>
+                              </div>
+                              <div class="summary-item medium">
+                                  <div class="summary-count">${trivySummary.medium}</div>
+                                  <div class="summary-label">Medium</div>
+                              </div>
+                              <div class="summary-item low">
+                                  <div class="summary-count">${trivySummary.low}</div>
+                                  <div class="summary-label">Low</div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="card">
+                          <div class="card-title">
+                              ⚡ ESLint Issues
+                              ${eslintSummary.total > 0 ? `<span class="total-badge">${eslintSummary.total}</span>` : ''}
+                          </div>
+                          <div class="summary-grid">
+                              <div class="summary-item error">
+                                  <div class="summary-count">${eslintSummary.error}</div>
+                                  <div class="summary-label">Errors</div>
+                              </div>
+                              <div class="summary-item warning">
+                                  <div class="summary-count">${eslintSummary.warning}</div>
+                                  <div class="summary-label">Warnings</div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="card">
+                          <div class="card-title">
+                              🛡️ Semgrep Findings
+                              ${semgrepSummary.total > 0 ? `<span class="total-badge">${semgrepSummary.total}</span>` : ''}
+                          </div>
+                          <div class="summary-grid">
+                              <div class="summary-item error">
+                                  <div class="summary-count">${semgrepSummary.error}</div>
+                                  <div class="summary-label">Errors</div>
+                              </div>
+                              <div class="summary-item warning">
+                                  <div class="summary-count">${semgrepSummary.warning}</div>
+                                  <div class="summary-label">Warnings</div>
+                              </div>
+                              <div class="summary-item info">
+                                  <div class="summary-count">${semgrepSummary.info}</div>
+                                  <div class="summary-label">Info</div>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div class="card">
+                        <div class="card-title">
+                          🔐 Gitleaks Secrets
+                          ${gitleaksSummary.total > 0 ? `<span class="total-badge">${gitleaksSummary.total}</span>` : ''}
+                        </div>
+                        <div class="summary-grid">
+                          <div class="summary-item critical" style="grid-column: 1 / -1;">
+                              <div class="summary-count">${gitleaksSummary.critical}</div>
+                              <div class="summary-label">Secrets Detected</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="card">
+                        <div class="card-title">
+                          📋 Vulnerable Packages
+                          ${vulnPackagesSummary.total > 0 ? `<span class="total-badge">${vulnPackagesSummary.total}</span>` : ''}
+                        </div>
+                        <div class="summary-grid">
+                          <div class="summary-item critical" style="grid-column: 1 / -1;">
+                            <div class="summary-count">${vulnPackagesSummary.total}</div>
+                            <div class="summary-label">Matches Found</div>
+                          </div>
+                          ${vulnPackagesSummary.scanned > 0 ? `
+                          <div class="summary-item info">
+                            <div class="summary-count">${vulnPackagesSummary.scanned}</div>
+                            <div class="summary-label">Packages Scanned</div>
+                          </div>
+                          <div class="summary-item info">
+                            <div class="summary-count" style="font-size: 18px;">${vulnPackagesSummary.packageManager}</div>
+                            <div class="summary-label">Package Manager</div>
+                          </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                  ${auditVulns.length > 0 ? `
+                  <div class="details-section">
+                      <h2 class="section-title">📦 Dependency Vulnerabilities Details</h2>
+                      ${auditVulns.length > 50 ? `<p class="record-count">Showing all ${auditVulns.length} vulnerabilities (scroll to view more)</p>` : ''}
+                      <div class="table-container">
+                          <table>
+                              <thead>
+                                  <tr>
+                                      <th>Package</th>
+                                      <th>Severity</th>
+                                      <th>Issue</th>
+                                      <th>Version Range</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${auditVulns.map(v => `
+                                      <tr>
+                                          <td><code>${v.name}</code></td>
+                                          <td><span class="badge ${v.severity}">${v.severity}</span></td>
+                                          <td>${v.title}</td>
+                                          <td>${v.range}</td>
+                                      </tr>
+                                  `).join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No dependency vulnerabilities found!</div></div>'}
+
+                  ${trivyVulns.length > 0 ? `
+                  <div class="details-section">
+                      <h2 class="section-title">🔍 Trivy Scan Results</h2>
+                      ${trivyVulns.length > 50 ? `<p class="record-count">Showing all ${trivyVulns.length} vulnerabilities (scroll to view more)</p>` : ''}
+                      <div class="table-container">
+                          <table>
+                              <thead>
+                                  <tr>
+                                      <th>Vulnerability ID</th>
+                                      <th>Package</th>
+                                      <th>Version</th>
+                                      <th>Fixed In</th>
+                                      <th>Severity</th>
+                                      <th>Title</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${trivyVulns.map(v => `
+                                      <tr>
+                                          <td><code>${v.id}</code></td>
+                                          <td><code>${v.package}</code></td>
+                                          <td>${v.version}</td>
+                                          <td>${v.fixed}</td>
+                                          <td><span class="badge ${v.severity.toLowerCase()}">${v.severity}</span></td>
+                                          <td>${v.title.substring(0, 100)}${v.title.length > 100 ? '...' : ''}</td>
+                                      </tr>
+                                  `).join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No container/filesystem vulnerabilities found!</div></div>'}
+
+                  ${eslintIssues.length > 0 ? `
+                  <div class="details-section">
+                      <h2 class="section-title">⚡ ESLint Security Issues</h2>
+                      ${eslintIssues.length > 50 ? `<p class="record-count">Showing all ${eslintIssues.length} issues (scroll to view more)</p>` : ''}
+                      <div class="table-container">
+                          <table>
+                              <thead>
+                                  <tr>
+                                      <th>File</th>
+                                      <th>Line</th>
+                                      <th>Severity</th>
+                                      <th>Rule</th>
+                                      <th>Message</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${eslintIssues.map(i => `
+                                      <tr>
+                                          <td><code>${i.file}</code></td>
+                                          <td>${i.line}:${i.column}</td>
+                                          <td><span class="badge ${i.severity}">${i.severity}</span></td>
+                                          <td><code>${i.rule}</code></td>
+                                          <td>${i.message}</td>
+                                      </tr>
+                                  `).join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No ESLint issues found!</div></div>'}
+
+                  ${semgrepFindings.length > 0 ? `
+                  <div class="details-section">
+                      <h2 class="section-title">🛡️ Semgrep Security Findings</h2>
+                      ${semgrepFindings.length > 50 ? `<p class="record-count">Showing all ${semgrepFindings.length} findings (scroll to view more)</p>` : ''}
+                      <div class="table-container">
+                          <table>
+                              <thead>
+                                  <tr>
+                                      <th>File</th>
+                                      <th>Line</th>
+                                      <th>Severity</th>
+                                      <th>Rule</th>
+                                      <th>Message</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${semgrepFindings.map(f => `
+                                      <tr>
+                                          <td><code>${f.file}</code></td>
+                                          <td>${f.line}</td>
+                                          <td><span class="badge ${f.severity.toLowerCase()}">${f.severity}</span></td>
+                                          <td><code>${f.rule}</code></td>
+                                          <td>${f.message.substring(0, 150)}${f.message.length > 150 ? '...' : ''}</td>
+                                      </tr>
+                                  `).join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No Semgrep issues found!</div></div>'}
+
+                  ${gitleaksFindings.length > 0 ? `
+                  <div class="details-section">
+                      <h2 class="section-title">🔐 Gitleaks - Detected Secrets</h2>
+                      ${gitleaksFindings.length > 50 ? `<p class="record-count">Showing all ${gitleaksFindings.length} secrets (scroll to view more)</p>` : ''}
+                      <div class="table-container">
+                          <table>
+                              <thead>
+                                  <tr>
+                                      <th>File</th>
+                                      <th>Line</th>
+                                      <th>Rule</th>
+                                      <th>Secret</th>
+                                      <th>Commit</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${gitleaksFindings.map(f => `
+                                      <tr>
+                                          <td><code>${f.file}</code></td>
+                                          <td>${f.line}</td>
+                                          <td><code>${f.rule}</code></td>
+                                          <td><span class="badge critical">${f.secret}</span></td>
+                                          <td><code>${f.commit}</code></td>
+                                      </tr>
+                                  `).join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No secrets detected!</div></div>'}
+
+                  ${vulnPackagesMatches.length > 0 ? `
+                  <div class="details-section">
+                    <h2 class="section-title">📋 Vulnerable Packages - Matches</h2>
+                    ${vulnPackagesMatches.length > 50 ? `<p class="record-count">Showing all ${vulnPackagesMatches.length} matches (scroll to view more)</p>` : ''}
+                    <div class="table-container">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Package Name</th>
+                            <th>Installed Version</th>
+                            <th>Vulnerable Pattern</th>
+                            <th>Source</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${vulnPackagesMatches.map(m => `
+                          <tr>
+                            <td><code>${m.package}</code></td>
+                            <td><span class="badge critical">${m.installedVersion}</span></td>
+                            <td><code>${m.vulnerablePattern}</code></td>
+                            <td>${m.raw}</td>
+                          </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  ` : '<div class="details-section"><div class="no-issues">✅ No vulnerable packages from list detected!</div></div>'}
+
+                  <div class="footer">
+                      <p>Generated by GitHub Actions Security Scan Workflow</p>
+                      <p style="margin-top: 10px; font-size: 14px;">Commit: ${metadata.commit?.slice(0, 7) || 'N/A'}</p>
+                  </div>
+              </div>
+          </body>
+          </html>`;
+
+          fs.writeFileSync('security-reports/security-report.html', html);
+          console.log('✅ HTML report generated successfully!');
+          console.log(`Audit vulnerabilities processed: ${auditVulns.length}`);
+          EOFJS
+
+          node security-reports/generate-report.js
+
+      # Upload all security reports as artifacts
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: security-reports/
+          retention-days: 90
+
+      # Generate security summary - CLEAN VERSION
+      - name: Security Scan Summary
+        if: always()
+        run: |
+          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Read and display brief summary from each tool
+          if [ -f security-reports/audit-report.json ]; then
+            AUDIT_TOTAL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('security-reports/audit-report.json')).metadata.vulnerabilities.total || 0)")
+            echo "## 📦 Dependency Audit: $AUDIT_TOTAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f security-reports/trivy-report.json ]; then
+            TRIVY_TOTAL=$(node -e "try { const data = JSON.parse(require('fs').readFileSync('security-reports/trivy-report.json')); let total = 0; if (data.Results) { data.Results.forEach(r => { total += (r.Vulnerabilities || []).length }); } console.log(total); } catch(e) { console.log(0); }")
+            echo "## 🔍 Trivy Scan: $TRIVY_TOTAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📥 Download Detailed Reports" >> $GITHUB_STEP_SUMMARY
+          echo "Download the **security-reports-${{ github.run_number }}** artifact for complete HTML report and raw data." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Security scan completed!" >> $GITHUB_STEP_SUMMARY
