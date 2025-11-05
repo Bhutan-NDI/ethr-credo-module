@@ -228,20 +228,57 @@ export class EthereumLedgerService {
 
     const blockchainAccountId = getPreferredKey(didRecord.didDocument.verificationMethod)
 
-    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.publicKeyHex)
+    // Look for publicKeyBase58 (new format) or fallback to publicKeyHex (legacy)
+    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.publicKeyBase58 || obj.publicKeyHex)
 
-    if (!keyObj || !keyObj.publicKeyHex) {
-      throw new CredoError('Public Key hex not found in wallet for did: ' + did)
+    if (!keyObj) {
+      throw new CredoError('Public Key not found in wallet for did: ' + did)
     }
 
-    const publicKey = TypedArrayEncoder.fromHex(keyObj.publicKeyHex)
+    let publicKeyBase58: string
 
-    const publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+    if (keyObj.publicKeyBase58) {
+      publicKeyBase58 = keyObj.publicKeyBase58
+    } else if (keyObj.publicKeyHex) {
+      // Legacy support: convert hex to base58
+      const publicKey = TypedArrayEncoder.fromHex(keyObj.publicKeyHex)
+      publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+    } else {
+      throw new CredoError('Public Key not found in wallet for did: ' + did)
+    }
 
     return { publicKeyBase58, blockchainAccountId }
   }
 
   public async resolveDID(did: string) {
-    return await this.resolver.resolve(did)
+    const result = await this.resolver.resolve(did)
+
+    // Update context to include secp256k1-2019/v1
+    if (result.didDocument) {
+      result.didDocument['@context'] = [
+        'https://www.w3.org/ns/did/v1',
+        'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+        'https://w3id.org/security/suites/secp256k1-2019/v1',
+      ]
+
+      // Transform verification methods from publicKeyHex to publicKeyBase58
+      if (result.didDocument.verificationMethod) {
+        result.didDocument.verificationMethod = result.didDocument.verificationMethod.map((vm) => {
+          if (vm.publicKeyHex) {
+            const publicKey = TypedArrayEncoder.fromHex(vm.publicKeyHex)
+            const publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { publicKeyHex, ...rest } = vm
+            return {
+              ...rest,
+              publicKeyBase58,
+            }
+          }
+          return vm
+        })
+      }
+    }
+
+    return result
   }
 }

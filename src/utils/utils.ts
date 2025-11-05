@@ -76,6 +76,7 @@ export function parseAddress(address: string) {
 export function getPreferredKey(methods: VerificationMethod[]): string {
   for (const m of methods) {
     if (m.blockchainAccountId) return m.blockchainAccountId
+    if (m.publicKeyBase58) return m.publicKeyBase58
     if (m.publicKeyHex) return m.publicKeyHex
   }
 
