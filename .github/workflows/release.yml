@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Release Unstable
     needs: release-stable
-    if: "always() && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'ayanworks/credo-ethr-module') || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): new version'))"
+    if: "always() && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == '@bhutan-ndi/ethr-credo-module') || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): new version'))"
 
     steps:
       - name: Checkout Repo
@@ -101,7 +101,7 @@ jobs:
           yarn changeset publish --tag alpha
 
           CURRENT_PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          git config --global user.name "Ayanworks"
-          git config --global user.email "github@ayanworks.com"
+          git config --global user.name "Bhutan NDI"
+          git config --global user.email "github@bhutanndi.bt"
           git tag v$CURRENT_PACKAGE_VERSION
           git push origin v$CURRENT_PACKAGE_VERSION --no-verify
