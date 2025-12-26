@@ -21,11 +21,6 @@ export class EthereumDidResolver implements DidResolver {
 
       const didDoc = JsonTransformer.fromJSON(didDocument, DidDocument)
 
-      didDoc.context = [
-        // 'https://www.w3.org/ns/did/v1',
-        // 'https://w3id.org/security/suites/secp256k1-2019/v1',
-        'https://w3id.org/security/v3-unstable',
-      ]
       return {
         didDocument: didDoc,
         didDocumentMetadata,
