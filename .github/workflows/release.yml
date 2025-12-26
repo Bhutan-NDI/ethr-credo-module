@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Release Unstable
     needs: release-stable
-    if: "always() && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == '@bhutan-ndi/ethr-credo-module') || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): new version'))"
+    if: "always() && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'bhutan-ndi/ethr-credo-module') || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'chore(release): new version'))"
 
     steps:
       - name: Checkout Repo
@@ -89,7 +89,7 @@ jobs:
           # this ensures there's always a patch release created
           cat << 'EOF' > .changeset/snapshot-template-changeset.md
           ---
-          '@ayanworks/credo-ethr-module': patch
+          '@bhutan-ndi/ethr-credo-module': patch
           ---
 
           snapshot release
