@@ -95,7 +95,7 @@ jobs:
           snapshot release
           EOF
 
-          yarn changeset version --snapshot
+          yarn changeset version --snapshot alpha
           yarn prettier --write .
           yarn build
           yarn changeset publish --tag alpha
