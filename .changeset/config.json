@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": "./commit",
   "privatePackages": false,
-  "fixed": [["@ayanworks/*"]],
+  "fixed": [["@bhutan-ndi/*"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
