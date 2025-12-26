@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { DocumentLoader, JwsLinkedDataSignatureOptions, Proof } from '@credo-ts/core'
 import type { JsonLdDoc } from '@credo-ts/core/build/modules/vc/data-integrity/jsonldUtil'
 
@@ -62,27 +61,29 @@ export class EcdsaSecp256k1Signature2019 extends JwsLinkedDataSignature {
   }
 
   public async assertVerificationMethod(document: JsonLdDoc) {
-    // if (!_includesCompatibleContext({ document: document })) {
-    //   // For DID Documents, since keys do not have their own contexts,
-    //   // the suite context is usually provided by the documentLoader logic
-    //   throw new TypeError(
-    //     `The '@context' of the verification method (key) MUST contain the context url "${this.contextUrl}".`
-    //   )
-    // }
-    // if (!_isSecp256k12019Key(document)) {
-    //   const verificationMethodType = jsonld.getValues(document, 'type')[0]
-    //   throw new Error(
-    //     `Unsupported verification method type '${verificationMethodType}'. Verification method type MUST be 'EcdsaSecp256k1VerificationKey2019'.`
-    //   )
-    // } else if (_isSecp256k12019Key(document) && !_includesSecp256k12019Context(document)) {
-    //   throw new Error(
-    //     `For verification method type 'EcdsaSecp256k1VerificationKey2019' the '@context' MUST contain the context url "${SECURITY_CONTEXT_SECP256k1_URL}".`
-    //   )
-    // }
-    // // ensure verification method has not been revoked
-    // if (document.revoked !== undefined) {
-    //   throw new Error('The verification method has been revoked.')
-    // }
+    if (!_includesCompatibleContext({ document: document })) {
+      // For DID Documents, since keys do not have their own contexts,
+      // the suite context is usually provided by the documentLoader logic
+      throw new TypeError(
+        `The '@context' of the verification method (key) MUST contain the context url "${this.contextUrl}".`
+      )
+    }
+
+    if (!_isSecp256k12019Key(document)) {
+      const verificationMethodType = jsonld.getValues(document, 'type')[0]
+      throw new Error(
+        `Unsupported verification method type '${verificationMethodType}'. Verification method type MUST be 'EcdsaSecp256k1VerificationKey2019'.`
+      )
+    } else if (_isSecp256k12019Key(document) && !_includesSecp256k12019Context(document)) {
+      throw new Error(
+        `For verification method type 'EcdsaSecp256k1VerificationKey2019' the '@context' MUST contain the context url "${SECURITY_CONTEXT_SECP256k1_URL}".`
+      )
+    }
+
+    // ensure verification method has not been revoked
+    if (document.revoked !== undefined) {
+      throw new Error('The verification method has been revoked.')
+    }
   }
 
   public async getVerificationMethod(options: { proof: Proof; documentLoader?: DocumentLoader }) {

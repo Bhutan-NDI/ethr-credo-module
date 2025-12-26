@@ -185,9 +185,9 @@ export const EthereumDIDFixtures = {
   VALID_DID_DOCUMENT: {
     didDocument: {
       '@context': [
-        // 'https://www.w3.org/ns/did/v1',
-        // 'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
-        'https://w3id.org/security/v3-unstable',
+        'https://www.w3.org/ns/did/v1',
+        'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+        'https://w3id.org/security/suites/secp256k1-2019/v1',
       ],
       id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
       verificationMethod: [
@@ -201,7 +201,7 @@ export const EthereumDIDFixtures = {
           id: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca#controllerKey',
           type: 'EcdsaSecp256k1VerificationKey2019',
           controller: 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
-          publicKeyHex: '022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca',
+          publicKeyBase58: 'dxfVszfXXYwayBLxAijdcdnkSG9Hw1w3fxLcHqobxUj3',
         },
       ],
       authentication: [
