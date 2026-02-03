@@ -117,6 +117,23 @@ describe('Schema Operations', () => {
       expect(response.schemaTxnHash).toBeDefined()
     })
 
+    it('should create w3c schema with custom Id successfully', async () => {
+      const id = utils.uuid()
+      const response = await faberAgent.modules.ethereum.createSchema({
+        did,
+        schemaId: id,
+        schemaName: 'TestCollegeSchema',
+        schema: testSchemaSample,
+      })
+      schemaId = response.schemaId
+
+      expect(response).toBeDefined()
+      expect(response.schemaId).toBeDefined()
+      expect(typeof response.schemaId).toBe('string')
+      expect(response.schemaId).toBe(id)
+      expect(response.schemaTxnHash).toBeDefined()
+    })
+
     it('should handle schema creation with invalid data', async () => {
       // Test with empty schema name
       await expect(

@@ -1,3 +1,5 @@
+import type { SchemaCreateOptions } from './ledger'
+
 import { AgentContext, injectable } from '@credo-ts/core'
 
 import { EthereumLedgerService } from './ledger'
@@ -12,8 +14,13 @@ export class EthereumApi {
     this.ledgerService = ledgerService
   }
 
-  public async createSchema({ did, schemaName, schema }: { did: string; schemaName: string; schema: object }) {
-    const schemaDetails = await this.ledgerService.createSchema(this.agentContext, { did, schemaName, schema })
+  public async createSchema({ did, schemaId, schemaName, schema }: SchemaCreateOptions) {
+    const schemaDetails = await this.ledgerService.createSchema(this.agentContext, {
+      did,
+      schemaId,
+      schemaName,
+      schema,
+    })
     return schemaDetails
   }
 
