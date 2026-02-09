@@ -8,7 +8,7 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
-import { buildSchemaResource, uploadSchemaFile } from '../utils/schemaHelper'
+import { buildSchemaResource, schemaFileExist, uploadSchemaFile } from '../utils/schemaHelper'
 import { getPreferredKey, parseAddress } from '../utils/utils'
 
 /**
@@ -106,11 +106,16 @@ export class EthereumLedgerService {
       const address = parseAddress(keyResult.blockchainAccountId)
       const schemaResource = await buildSchemaResource(did, newSchemaId, schemaName, schema, address)
 
+      const fileExists = schemaId ? await schemaFileExist(newSchemaId, this.fileServerUrl, this.fileServerToken) : false
+
+      const uploadPromise = fileExists
+        ? Promise.resolve({ skipped: true })
+        : uploadSchemaFile(newSchemaId, schema, this.fileServerUrl, this.fileServerToken)
+
+      const blockchainPromise = ethSchemaRegistry.createSchema(newSchemaId, JSON.stringify(schemaResource))
+
       // Create schema on blockchain and upload to file server in parallel
-      const [blockchainResponse, uploadResponse] = await Promise.allSettled([
-        ethSchemaRegistry.createSchema(newSchemaId, JSON.stringify(schemaResource)),
-        uploadSchemaFile(newSchemaId, schema, this.fileServerUrl, this.fileServerToken),
-      ])
+      const [blockchainResponse, uploadResponse] = await Promise.allSettled([blockchainPromise, uploadPromise])
 
       // Handle blockchain response
       if (blockchainResponse.status === 'rejected') {
