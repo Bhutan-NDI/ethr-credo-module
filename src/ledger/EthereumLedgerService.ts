@@ -8,7 +8,7 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
-import { buildSchemaResource, uploadSchemaFile } from '../utils/schemaHelper'
+import { buildSchemaResource, schemaFileExist, uploadSchemaFile } from '../utils/schemaHelper'
 import { getPreferredKey, parseAddress } from '../utils/utils'
 
 /**
@@ -42,6 +42,7 @@ export interface SchemaCreationResult {
 }
 export interface SchemaCreateOptions {
   did: string
+  schemaId?: string
   schemaName: string
   schema: object
 }
@@ -66,7 +67,7 @@ export class EthereumLedgerService {
    */
   public async createSchema(
     agentContext: AgentContext,
-    { did, schemaName, schema }: SchemaCreateOptions
+    { did, schemaId, schemaName, schema }: SchemaCreateOptions
   ): Promise<SchemaCreationResult> {
     if (!this.schemaManagerContractAddress || !this.rpcUrl || !this.fileServerUrl || !this.fileServerToken) {
       throw new SchemaCreationError(
@@ -101,15 +102,20 @@ export class EthereumLedgerService {
         signingKey: signingKey,
       })
 
-      const schemaId = utils.uuid()
+      const newSchemaId = schemaId ?? utils.uuid()
       const address = parseAddress(keyResult.blockchainAccountId)
-      const schemaResource = await buildSchemaResource(did, schemaId, schemaName, schema, address)
+      const schemaResource = await buildSchemaResource(did, newSchemaId, schemaName, schema, address)
+
+      const fileExists = schemaId ? await schemaFileExist(newSchemaId, this.fileServerUrl, this.fileServerToken) : false
+
+      const uploadPromise = fileExists
+        ? Promise.resolve({ skipped: true })
+        : uploadSchemaFile(newSchemaId, schema, this.fileServerUrl, this.fileServerToken)
+
+      const blockchainPromise = ethSchemaRegistry.createSchema(newSchemaId, JSON.stringify(schemaResource))
 
       // Create schema on blockchain and upload to file server in parallel
-      const [blockchainResponse, uploadResponse] = await Promise.allSettled([
-        ethSchemaRegistry.createSchema(schemaId, JSON.stringify(schemaResource)),
-        uploadSchemaFile(schemaId, schema, this.fileServerUrl, this.fileServerToken),
-      ])
+      const [blockchainResponse, uploadResponse] = await Promise.allSettled([blockchainPromise, uploadPromise])
 
       // Handle blockchain response
       if (blockchainResponse.status === 'rejected') {
@@ -125,7 +131,7 @@ export class EthereumLedgerService {
       // Handle file server response
       if (uploadResponse.status === 'rejected') {
         agentContext.config.logger.warn(
-          `File server upload failed for schema ${schemaId}: ${uploadResponse.reason?.message || 'Unknown error'}`
+          `File server upload failed for schema ${newSchemaId}: ${uploadResponse.reason?.message || 'Unknown error'}`
         )
         // Continue execution as file server upload is not critical
       }
@@ -137,7 +143,7 @@ export class EthereumLedgerService {
 
       const response: SchemaCreationResult = {
         did,
-        schemaId,
+        schemaId: newSchemaId,
         schemaTxnHash: result.hash,
       }
 

@@ -10,6 +10,7 @@ import { Subject } from 'rxjs'
 import { EthereumModule } from '../src/EthereumModule'
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
 import { EthereumLedgerError, SchemaCreationError, SchemaRetrievalError } from '../src/ledger/EthereumLedgerService'
+import * as schemaHelper from '../src/utils/schemaHelper'
 
 import { testSchemaSample } from './fixtures'
 import { SubjectInboundTransport } from './transport/SubjectInboundTransport'
@@ -117,6 +118,33 @@ describe('Schema Operations', () => {
       expect(response.schemaTxnHash).toBeDefined()
     })
 
+    it('should create w3c schema with custom Id successfully', async () => {
+      const id = utils.uuid()
+
+      const fileExistSpy = jest.spyOn(schemaHelper, 'schemaFileExist')
+      const uploadSpy = jest.spyOn(schemaHelper, 'uploadSchemaFile')
+
+      const response = await faberAgent.modules.ethereum.createSchema({
+        did,
+        schemaId: id,
+        schemaName: 'TestCollegeSchema',
+        schema: testSchemaSample,
+      })
+      schemaId = response.schemaId
+
+      expect(response).toBeDefined()
+      expect(response.schemaId).toBeDefined()
+      expect(typeof response.schemaId).toBe('string')
+      expect(response.schemaId).toBe(id)
+      expect(response.schemaTxnHash).toBeDefined()
+
+      expect(fileExistSpy).toHaveBeenCalled()
+      expect(uploadSpy).toHaveBeenCalled()
+
+      fileExistSpy.mockRestore()
+      uploadSpy.mockRestore()
+    })
+
     it('should handle schema creation with invalid data', async () => {
       // Test with empty schema name
       await expect(
@@ -146,6 +174,32 @@ describe('Schema Operations', () => {
           schema: testSchemaSample,
         })
       ).rejects.toThrow(EthereumLedgerError)
+    })
+
+    it('Migration: should skip file upload if schema already exists on file server but creates schema on Ethereum blockchain', async () => {
+      // Existing schema Id from File Server but not on chain (Migration Scenario)
+      const id = 'c0d366fd-1265-4252-8e68-5e9a929a1835'
+
+      const fileExistSpy = jest.spyOn(schemaHelper, 'schemaFileExist')
+      const uploadSpy = jest.spyOn(schemaHelper, 'uploadSchemaFile')
+
+      const response = await faberAgent.modules.ethereum.createSchema({
+        did,
+        schemaId: id,
+        schemaName: 'SkipUploadSchema',
+        schema: testSchemaSample,
+      })
+
+      expect(response).toBeDefined()
+      expect(response.schemaId).toBe(id)
+      expect(response.schemaTxnHash).toBeDefined()
+
+      expect(uploadSpy).not.toHaveBeenCalled()
+      expect(fileExistSpy).toHaveBeenCalled()
+
+      // Cleanup (important for other tests)
+      fileExistSpy.mockRestore()
+      uploadSpy.mockRestore()
     })
   })
 

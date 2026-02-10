@@ -64,6 +64,32 @@ export async function uploadSchemaFile(
     return response
   } catch (error) {
     throw new Error(`Error occurred in uploadSchemaFile function ${error} `)
-    throw error
+  }
+}
+
+export async function schemaFileExist(
+  schemaId: string,
+  fileServerUrl: string,
+  fileServerToken: string
+): Promise<boolean> {
+  if (!schemaId) {
+    throw new Error('Schema id is required')
+  }
+
+  try {
+    await axios.head(`${fileServerUrl}/schemas/${encodeURIComponent(schemaId)}`, {
+      headers: {
+        Authorization: `Bearer ${fileServerToken}`,
+      },
+    })
+
+    return true
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return false
+    }
+
+    throw new Error(`schemaFileExist failed: ${error?.message ?? 'Unknown error'}`)
   }
 }
