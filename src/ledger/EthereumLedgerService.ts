@@ -8,7 +8,7 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
-import { buildSchemaResource, uploadSchemaFile } from '../utils/schemaHelper'
+import { buildSchemaResource, getSchemaFile, uploadSchemaFile } from '../utils/schemaHelper'
 import { getPreferredKey, parseAddress } from '../utils/utils'
 
 /**
@@ -34,6 +34,16 @@ export class SchemaRetrievalError extends EthereumLedgerError {
     this.name = 'SchemaRetrievalError'
   }
 }
+export interface Schema {
+  $schema: string
+  $id: string
+  type: string
+  title: string
+  description: string
+  required: string[]
+  properties: Record<string, unknown>
+  definitions: Record<string, unknown>
+}
 
 export interface SchemaCreationResult {
   did: string
@@ -44,6 +54,11 @@ export interface SchemaCreateOptions {
   did: string
   schemaName: string
   schema: object
+}
+
+export interface ExistingSchemaCreateOptions {
+  did: string
+  schemaId: string
 }
 
 @injectable()
@@ -153,6 +168,94 @@ export class EthereumLedgerService {
       // Wrap other errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       agentContext.config.logger.error(`Schema creation failed for DID: ${did}`, error)
+      throw new SchemaCreationError(errorMessage, error instanceof Error ? error : undefined)
+    }
+  }
+
+  /**
+   * Creates existing schema from file server on the Ethereum ledger
+   */
+  public async createExistingSchema(
+    agentContext: AgentContext,
+    { did, schemaId }: ExistingSchemaCreateOptions
+  ): Promise<SchemaCreationResult> {
+    if (!this.schemaManagerContractAddress || !this.rpcUrl || !this.fileServerUrl || !this.fileServerToken) {
+      throw new SchemaCreationError(
+        'Missing required configuration: schemaManagerContractAddress, rpcUrl, fileServerUrl, or fileServerToken'
+      )
+    }
+    // Validate inputs
+    if (!did?.trim()) {
+      throw new SchemaCreationError('DID is required and cannot be empty')
+    }
+    if (!schemaId?.trim()) {
+      throw new SchemaCreationError('Schema Id is required and cannot be empty')
+    }
+
+    agentContext.config.logger.info(`Creating existing schema ${schemaId} on Ethereum for DID: ${did}`)
+
+    try {
+      const schemaJson = await getSchemaFile(schemaId, this.fileServerUrl, this.fileServerToken)
+
+      if (!schemaJson) {
+        throw new SchemaCreationError(`Schema with id ${schemaId} not found on file server`)
+      }
+
+      if (!schemaJson.title) {
+        throw new SchemaCreationError(`Schema name not found in schema with id ${schemaId} on file server`)
+      }
+
+      const schemaName = schemaJson.title
+      const keyResult = await this.getPublicKeyFromDid(agentContext, did)
+
+      if (!keyResult.publicKeyBase58) {
+        throw new CredoError('Public Key not found in wallet')
+      }
+
+      const address = parseAddress(keyResult.blockchainAccountId)
+      const schemaResource = await buildSchemaResource(did, schemaId, schemaName, schemaJson, address)
+      const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
+
+      const ethSchemaRegistry = new EthereumSchemaRegistry({
+        contractAddress: this.schemaManagerContractAddress,
+        rpcUrl: this.rpcUrl,
+        signingKey: signingKey,
+      })
+
+      let result
+      try {
+        result = await ethSchemaRegistry.createSchema(schemaId, JSON.stringify(schemaResource))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        const errMsg = (error?.message || '').toLowerCase()
+        if (errMsg.includes('insufficient funds') || errMsg.includes('insufficient balance')) {
+          throw new SchemaCreationError('Insufficient funds to pay for gas fees', error)
+        }
+        throw new SchemaCreationError('Blockchain transaction failed', error)
+      }
+
+      if (!result?.hash) {
+        throw new SchemaCreationError('Invalid response from blockchain')
+      }
+
+      const response: SchemaCreationResult = {
+        did,
+        schemaId,
+        schemaTxnHash: result.hash,
+      }
+
+      agentContext.config.logger.info(`Successfully created schema on ledger for DID: ${did}`)
+
+      return response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error instanceof EthereumLedgerError) {
+        throw error
+      }
+
+      // Wrap other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      agentContext.config.logger.error(`Existing Schema creation failed for DID: ${did}`, error)
       throw new SchemaCreationError(errorMessage, error instanceof Error ? error : undefined)
     }
   }

@@ -75,7 +75,6 @@ describe('Schema Operations', () => {
     faberAgent.registerOutboundTransport(new SubjectOutboundTransport(subjectMap))
     faberAgent.registerInboundTransport(new SubjectInboundTransport(faberMessages))
     await faberAgent.initialize()
-
     const createdDid = await faberAgent.dids.create<EthereumDidCreateOptions>({
       method: 'ethr',
       options: {
@@ -146,6 +145,51 @@ describe('Schema Operations', () => {
           schema: testSchemaSample,
         })
       ).rejects.toThrow(EthereumLedgerError)
+    })
+  })
+
+  describe('Create Existing Schema', () => {
+    it('should create existing W3C schema from another ledger on Ethereum', async () => {
+      const validExistingSchemaId = '0c66b9b7-76af-4025-a3bc-55218ef18763'
+      const result = await faberAgent.modules.ethereum.createExistingSchema({
+        did,
+        schemaId: validExistingSchemaId,
+      })
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          did,
+          schemaId: validExistingSchemaId,
+          schemaTxnHash: expect.any(String),
+        })
+      )
+    })
+
+    it('should throw if schemaId is empty', async () => {
+      await expect(
+        faberAgent.modules.ethereum.createExistingSchema({
+          did,
+          schemaId: '',
+        })
+      ).rejects.toThrow('Schema Id is required')
+    })
+
+    it('should throw if DID is empty', async () => {
+      await expect(
+        faberAgent.modules.ethereum.createExistingSchema({
+          did: '',
+          schemaId: 'schema:example:1',
+        })
+      ).rejects.toThrow('DID is required')
+    })
+
+    it('should fail if schema does not exist on file server', async () => {
+      await expect(
+        faberAgent.modules.ethereum.createExistingSchema({
+          did,
+          schemaId: 'non-existent-schema-id',
+        })
+      ).rejects.toThrow('not found on file server')
     })
   })
 
