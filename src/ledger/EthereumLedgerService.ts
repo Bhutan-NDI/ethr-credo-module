@@ -8,7 +8,7 @@ import { getResolver } from 'ethr-did-resolver'
 
 import { EthereumModuleConfig } from '../EthereumModuleConfig'
 import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
-import { buildSchemaResource, uploadSchemaFile } from '../utils/schemaHelper'
+import { buildSchemaResource, getSchemaFile, uploadSchemaFile } from '../utils/schemaHelper'
 import { getPreferredKey, parseAddress } from '../utils/utils'
 
 /**
@@ -34,6 +34,16 @@ export class SchemaRetrievalError extends EthereumLedgerError {
     this.name = 'SchemaRetrievalError'
   }
 }
+export interface Schema {
+  $schema: string
+  $id: string
+  type: string
+  title: string
+  description: string
+  required: string[]
+  properties: Record<string, unknown>
+  definitions: Record<string, unknown>
+}
 
 export interface SchemaCreationResult {
   did: string
@@ -44,6 +54,11 @@ export interface SchemaCreateOptions {
   did: string
   schemaName: string
   schema: object
+}
+
+export interface ExistingSchemaCreateOptions {
+  did: string
+  schemaId: string
 }
 
 @injectable()
@@ -157,6 +172,101 @@ export class EthereumLedgerService {
     }
   }
 
+  /**
+   * Creates existing schema from file server on the Ethereum ledger
+   */
+  public async createExistingSchema(
+    agentContext: AgentContext,
+    { did, schemaId }: ExistingSchemaCreateOptions
+  ): Promise<SchemaCreationResult> {
+    if (!this.schemaManagerContractAddress || !this.rpcUrl || !this.fileServerUrl || !this.fileServerToken) {
+      throw new SchemaCreationError(
+        'Missing required configuration: schemaManagerContractAddress, rpcUrl, fileServerUrl, or fileServerToken'
+      )
+    }
+    // Validate inputs
+    if (!did?.trim()) {
+      throw new SchemaCreationError('DID is required and cannot be empty')
+    }
+    if (!schemaId?.trim()) {
+      throw new SchemaCreationError('Schema Id is required and cannot be empty')
+    }
+
+    agentContext.config.logger.info(`Creating existing schema ${schemaId} on Ethereum for DID: ${did}`)
+
+    try {
+      const schemaJson = await getSchemaFile(schemaId, this.fileServerUrl, this.fileServerToken)
+
+      if (!schemaJson) {
+        throw new SchemaCreationError(`Schema with id ${schemaId} not found on file server`)
+      }
+
+      if (!schemaJson.title) {
+        throw new SchemaCreationError(`Schema name not found in schema with id ${schemaId} on file server`)
+      }
+
+      const schemaName = schemaJson.title
+      const keyResult = await this.getPublicKeyFromDid(agentContext, did)
+
+      if (!keyResult.publicKeyBase58) {
+        throw new CredoError('Public Key not found in wallet')
+      }
+
+      const address = parseAddress(keyResult.blockchainAccountId)
+      const schemaResource = await buildSchemaResource(did, schemaId, schemaName, schemaJson, address)
+      const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
+
+      const ethSchemaRegistry = new EthereumSchemaRegistry({
+        contractAddress: this.schemaManagerContractAddress,
+        rpcUrl: this.rpcUrl,
+        signingKey: signingKey,
+      })
+
+      let result
+      try {
+        result = await ethSchemaRegistry.createSchema(schemaId, JSON.stringify(schemaResource))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        const errMsg = (error?.message || '').toLowerCase()
+        const revertReason =
+          error?.revertReason || error?.originalError?.revert?.args?.[0] || error?.originalError?.shortMessage || ''
+        if (errMsg.includes('insufficient funds') || errMsg.includes('insufficient balance')) {
+          throw new SchemaCreationError('Insufficient funds to pay for gas fees', error)
+        }
+
+        if (revertReason === 'SCHEMA_EXISTS' || errMsg.includes('schema_exists')) {
+          throw new SchemaCreationError(`Schema already exists on Ethereum for schemaId ${schemaId}`, error)
+        }
+
+        throw new SchemaCreationError('Blockchain transaction failed', error)
+      }
+
+      if (!result?.hash) {
+        throw new SchemaCreationError('Invalid response from blockchain')
+      }
+
+      const response: SchemaCreationResult = {
+        did,
+        schemaId,
+        schemaTxnHash: result.hash,
+      }
+
+      agentContext.config.logger.info(`Successfully created schema on ledger for DID: ${did}`)
+
+      return response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error instanceof EthereumLedgerError) {
+        throw error
+      }
+
+      // Wrap other errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      agentContext.config.logger.error(`Existing Schema creation failed for DID: ${did}`, error)
+      throw new SchemaCreationError(errorMessage, error instanceof Error ? error : undefined)
+    }
+  }
+
   public async getSchemaByDidAndSchemaId(agentContext: AgentContext, did: string, schemaId: string) {
     // Validate inputs
     if (!did?.trim()) {
@@ -228,20 +338,57 @@ export class EthereumLedgerService {
 
     const blockchainAccountId = getPreferredKey(didRecord.didDocument.verificationMethod)
 
-    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.publicKeyHex)
+    // Look for publicKeyBase58 (new format) or fallback to publicKeyHex (legacy)
+    const keyObj = didRecord.didDocument.verificationMethod.find((obj) => obj.publicKeyBase58 || obj.publicKeyHex)
 
-    if (!keyObj || !keyObj.publicKeyHex) {
-      throw new CredoError('Public Key hex not found in wallet for did: ' + did)
+    if (!keyObj) {
+      throw new CredoError('Public Key not found in wallet for did: ' + did)
     }
 
-    const publicKey = TypedArrayEncoder.fromHex(keyObj.publicKeyHex)
+    let publicKeyBase58: string
 
-    const publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+    if (keyObj.publicKeyBase58) {
+      publicKeyBase58 = keyObj.publicKeyBase58
+    } else if (keyObj.publicKeyHex) {
+      // Legacy support: convert hex to base58
+      const publicKey = TypedArrayEncoder.fromHex(keyObj.publicKeyHex)
+      publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+    } else {
+      throw new CredoError('Public Key not found in wallet for did: ' + did)
+    }
 
     return { publicKeyBase58, blockchainAccountId }
   }
 
   public async resolveDID(did: string) {
-    return await this.resolver.resolve(did)
+    const result = await this.resolver.resolve(did)
+
+    // Update context to include secp256k1-2019/v1
+    if (result.didDocument) {
+      result.didDocument['@context'] = [
+        'https://www.w3.org/ns/did/v1',
+        'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+        'https://w3id.org/security/suites/secp256k1-2019/v1',
+      ]
+
+      // Transform verification methods from publicKeyHex to publicKeyBase58
+      if (result.didDocument.verificationMethod) {
+        result.didDocument.verificationMethod = result.didDocument.verificationMethod.map((vm) => {
+          if (vm.publicKeyHex) {
+            const publicKey = TypedArrayEncoder.fromHex(vm.publicKeyHex)
+            const publicKeyBase58 = TypedArrayEncoder.toBase58(publicKey)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { publicKeyHex, ...rest } = vm
+            return {
+              ...rest,
+              publicKeyBase58,
+            }
+          }
+          return vm
+        })
+      }
+    }
+
+    return result
   }
 }
