@@ -191,6 +191,18 @@ describe('Schema Operations', () => {
         })
       ).rejects.toThrow('not found on file server')
     })
+
+    it('should throw SchemaCreationError when schema already exists on Ethereum', async () => {
+      const duplicateSchemaId = schemaId
+      await expect(
+        faberAgent.modules.ethereum.createExistingSchema({
+          did,
+          schemaId: duplicateSchemaId,
+        })
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('Schema already exists'),
+      })
+    })
   })
 
   describe('Schema Retrieval', () => {
