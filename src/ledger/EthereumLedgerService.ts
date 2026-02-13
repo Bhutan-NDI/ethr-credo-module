@@ -228,9 +228,16 @@ export class EthereumLedgerService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const errMsg = (error?.message || '').toLowerCase()
+        const revertReason =
+          error?.revertReason || error?.originalError?.revert?.args?.[0] || error?.originalError?.shortMessage || ''
         if (errMsg.includes('insufficient funds') || errMsg.includes('insufficient balance')) {
           throw new SchemaCreationError('Insufficient funds to pay for gas fees', error)
         }
+
+        if (revertReason === 'SCHEMA_EXISTS' || errMsg.includes('schema_exists')) {
+          throw new SchemaCreationError(`Schema already exists on Ethereum for schemaId ${schemaId}`, error)
+        }
+
         throw new SchemaCreationError('Blockchain transaction failed', error)
       }
 
