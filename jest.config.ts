@@ -8,6 +8,7 @@ const config: Config.InitialOptions = {
   displayName: packageJson.name,
   setupFilesAfterEnv: ['./tests/setup.ts'],
   testTimeout: 120000,
+  forceExit: true,
 }
 
 export default config

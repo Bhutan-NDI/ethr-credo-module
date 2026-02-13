@@ -217,59 +217,189 @@ export const EthereumDIDFixtures = {
 }
 
 export const testSchemaSample = {
-  '@context': [
-    {
-      '@version': 1.1,
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  $id: '2024-06-17T10:01:35.069Z-Academic Certificate',
+  type: 'object',
+  required: ['@context', 'issuer', 'issuanceDate', 'type', 'credentialSubject'],
+  properties: {
+    '@context': {
+      $ref: '#/definitions/context',
     },
-    'https://www.w3.org/ns/odrl.jsonld',
-    {
-      ex: 'https://example.org/examples#',
-      schema: 'http://schema.org/',
-      rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-
-      '3rdPartyCorrelation': 'ex:3rdPartyCorrelation',
-      AllVerifiers: 'ex:AllVerifiers',
-      Archival: 'ex:Archival',
-      BachelorDegree: 'ex:BachelorDegree',
-      Child: 'ex:Child',
-      CLCredentialDefinition2019: 'ex:CLCredentialDefinition2019',
-      CLSignature2019: 'ex:CLSignature2019',
-      IssuerPolicy: 'ex:IssuerPolicy',
-      HolderPolicy: 'ex:HolderPolicy',
-      Mother: 'ex:Mother',
-      RelationshipCredential: 'ex:RelationshipCredential',
-      UniversityDegreeCredential: 'ex:UniversityDegreeCredential',
-      AlumniCredential: 'ex:AlumniCredential',
-      DisputeCredential: 'ex:DisputeCredential',
-      PrescriptionCredential: 'ex:PrescriptionCredential',
-      ZkpExampleSchema2018: 'ex:ZkpExampleSchema2018',
-
-      issuerData: 'ex:issuerData',
-      attributes: 'ex:attributes',
-      signature: 'ex:signature',
-      signatureCorrectnessProof: 'ex:signatureCorrectnessProof',
-      primaryProof: 'ex:primaryProof',
-      nonRevocationProof: 'ex:nonRevocationProof',
-
-      alumniOf: { '@id': 'schema:alumniOf', '@type': 'rdf:HTML' },
-      child: { '@id': 'ex:child', '@type': '@id' },
-      degree: 'ex:degree',
-      degreeType: 'ex:degreeType',
-      degreeSchool: 'ex:degreeSchool',
-      college: 'ex:college',
-      name: { '@id': 'schema:name', '@type': 'rdf:HTML' },
-      givenName: 'schema:givenName',
-      familyName: 'schema:familyName',
-      parent: { '@id': 'ex:parent', '@type': '@id' },
-      referenceId: 'ex:referenceId',
-      documentPresence: 'ex:documentPresence',
-      evidenceDocument: 'ex:evidenceDocument',
-      spouse: 'schema:spouse',
-      subjectPresence: 'ex:subjectPresence',
-      verifier: { '@id': 'ex:verifier', '@type': '@id' },
-      currentStatus: 'ex:currentStatus',
-      statusReason: 'ex:statusReason',
-      prescription: 'ex:prescription',
+    type: {
+      type: 'array',
+      items: {
+        anyOf: [
+          {
+            $ref: '#/definitions/VerifiableCredential',
+          },
+          {
+            const: '#/definitions/$Academic Certificate',
+          },
+        ],
+      },
     },
-  ],
+    credentialSubject: {
+      $ref: '#/definitions/credentialSubject',
+    },
+    id: {
+      type: 'string',
+      format: 'uri',
+    },
+    issuer: {
+      $ref: '#/definitions/uriOrId',
+    },
+    issuanceDate: {
+      type: 'string',
+      format: 'date-time',
+    },
+    expirationDate: {
+      type: 'string',
+      format: 'date-time',
+    },
+    credentialStatus: {
+      $ref: '#/definitions/credentialStatus',
+    },
+    credentialSchema: {
+      $ref: '#/definitions/credentialSchema',
+    },
+  },
+  definitions: {
+    context: {
+      type: 'array',
+      items: [
+        {
+          const: 'https://www.w3.org/2018/credentials/v1',
+        },
+      ],
+      additionalItems: {
+        oneOf: [
+          {
+            type: 'string',
+            format: 'uri',
+          },
+          {
+            type: 'object',
+          },
+          {
+            type: 'array',
+            items: {
+              $ref: '#/definitions/context',
+            },
+          },
+        ],
+      },
+      minItems: 1,
+      uniqueItems: true,
+    },
+    credentialSubject: {
+      type: 'object',
+      required: ['id'],
+      additionalProperties: false,
+      properties: {
+        id: {
+          type: 'string',
+          format: 'uri',
+        },
+        'Issuer Name': {
+          type: 'string',
+          order: 0,
+          title: 'Issuer Name',
+        },
+        'Student ID': {
+          type: 'number',
+          order: 1,
+          title: 'Student ID',
+        },
+        'Student Name': {
+          type: 'string',
+          order: 2,
+          title: 'Student Name',
+        },
+        'Title of Award': {
+          type: 'string',
+          order: 3,
+          title: 'Title of Award',
+        },
+        'College Name': {
+          type: 'string',
+          order: 4,
+          title: 'College Name',
+        },
+        revocation_id: {
+          type: 'string',
+          order: 5,
+          title: 'revocation_id',
+        },
+      },
+    },
+    VerifiableCredential: {
+      const: 'VerifiableCredential',
+    },
+    credentialSchema: {
+      oneOf: [
+        {
+          $ref: '#/definitions/idAndType',
+        },
+        {
+          type: 'array',
+          items: {
+            $ref: '#/definitions/idAndType',
+          },
+          minItems: 1,
+          uniqueItems: true,
+        },
+      ],
+    },
+    credentialStatus: {
+      oneOf: [
+        {
+          $ref: '#/definitions/idAndType',
+        },
+        {
+          type: 'array',
+          items: {
+            $ref: '#/definitions/idAndType',
+          },
+          minItems: 1,
+          uniqueItems: true,
+        },
+      ],
+    },
+    idAndType: {
+      type: 'object',
+      required: ['id', 'type'],
+      properties: {
+        id: {
+          type: 'string',
+          format: 'uri',
+        },
+        type: {
+          type: 'string',
+        },
+      },
+    },
+    uriOrId: {
+      oneOf: [
+        {
+          type: 'string',
+          format: 'uri',
+        },
+        {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uri',
+            },
+          },
+        },
+      ],
+    },
+    'Academic Certificate': {
+      const: 'Academic Certificate',
+    },
+  },
+  title: 'Academic Certificate',
+  description: 'Academic Certificate',
 }
