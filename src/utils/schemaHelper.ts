@@ -1,4 +1,6 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
+import type { Schema } from '../ledger/EthereumLedgerService'
+
 import axios from 'axios'
 import keccak256 from 'keccak256'
 
@@ -64,6 +66,32 @@ export async function uploadSchemaFile(
     return response
   } catch (error) {
     throw new Error(`Error occurred in uploadSchemaFile function ${error} `)
-    throw error
+  }
+}
+
+export async function getSchemaFile(
+  schemaId: string,
+  fileServerUrl: string,
+  fileServerToken: string
+): Promise<Schema | null> {
+  if (!schemaId) {
+    throw new Error('Schema id is required')
+  }
+
+  try {
+    const response = await axios.get(`${fileServerUrl}/schemas/${encodeURIComponent(schemaId)}`, {
+      headers: {
+        Authorization: `Bearer ${fileServerToken}`,
+      },
+    })
+
+    return response.data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return null
+    }
+
+    throw new Error(`Failed to get schema ${schemaId} from file server. Error: ${error}`)
   }
 }

@@ -17,6 +17,11 @@ export class EthereumApi {
     return schemaDetails
   }
 
+  public async createExistingSchema({ did, schemaId }: { did: string; schemaId: string }) {
+    const schemaDetails = await this.ledgerService.createExistingSchema(this.agentContext, { did, schemaId })
+    return schemaDetails
+  }
+
   public async getSchemaById(did: string, schemaId: string) {
     const schemaDetails = await this.ledgerService.getSchemaByDidAndSchemaId(this.agentContext, did, schemaId)
     return schemaDetails
