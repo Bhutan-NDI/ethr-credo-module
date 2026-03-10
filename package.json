@@ -26,7 +26,7 @@
     "test": "jest",
     "lint": "eslint --ignore-path .gitignore .",
     "release": "yarn build && yarn changeset publish --no-git-tag",
-    "changeset-version": "yarn changeset version && yarn prettier --write"
+    "changeset-version": "yarn changeset version && yarn prettier --write ."
   },
   "dependencies": {
     "@credo-ts/askar": "0.5.3",
