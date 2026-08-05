@@ -1,10 +1,22 @@
 import type { DocumentLoader, JwsLinkedDataSignatureOptions, Proof } from '@credo-ts/core'
-import type { JsonLdDoc } from '@credo-ts/core/build/modules/vc/data-integrity/jsonldUtil'
 
 import { CREDENTIALS_CONTEXT_V1_URL, JwsLinkedDataSignature, SECURITY_CONTEXT_URL, vcLibraries } from '@credo-ts/core'
-import { _includesContext } from '@credo-ts/core/build/modules/vc/data-integrity/jsonldUtil'
 
 const { jsonld } = vcLibraries
+
+// NOTE: `JsonLdDoc` and `_includesContext` are inlined from @credo-ts/core's internal
+// `modules/vc/data-integrity/jsonldUtil` module. That module is NOT part of Credo's public
+// `exports` map, so importing it via a deep build path
+// (`@credo-ts/core/build/modules/vc/data-integrity/jsonldUtil`) throws
+// ERR_PACKAGE_PATH_NOT_EXPORTED at load time and crashes any agent that wires in this module.
+// Both are trivial and dependency-free, so we reproduce them locally instead of reaching into
+// Credo internals. Keep in sync with upstream if the helper ever changes (it has been stable).
+type JsonLdDoc = Record<string, unknown>
+
+const _includesContext = (options: { document: JsonLdDoc; contextUrl: string }): boolean => {
+  const context = options.document['@context']
+  return context === options.contextUrl || (Array.isArray(context) && context.includes(options.contextUrl))
+}
 
 export const SECURITY_CONTEXT_SECP256k1_RECOVERY_URL = 'https://w3id.org/security/suites/secp256k1recovery-2020/v2'
 
