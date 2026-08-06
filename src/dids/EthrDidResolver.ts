@@ -6,7 +6,7 @@ import {
   JsonTransformer,
 } from '@credo-ts/core'
 
-import { EthereumLedgerService } from '../ledger/EthereumLedgerService'
+import { EthereumLedgerService } from '../ledger/EthereumLedgerService.js'
 
 export class EthereumDidResolver implements DidResolver {
   public readonly allowsCaching = true

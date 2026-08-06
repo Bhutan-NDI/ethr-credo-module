@@ -3,18 +3,26 @@ import type { ContractTransactionReceipt } from 'ethers'
 
 import { utils } from '@credo-ts/core'
 import { ethers, SigningKey } from 'ethers'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import { EthereumSchemaRegistry } from '../src/schema/EthereumSchemaRegistry'
 import { ContractError, ValidationError } from '../src/schema/types/EthereumSchemaRegistry.types'
 
 import { testSchemaSample } from './fixtures'
+import { hasLedgerWriteEnv, SEPOLIA_RPC_URL } from './utils'
+
+// These talk to a live schema-registry contract on Sepolia and need funded signing keys,
+// so they only run when SEPOLIA_RPC_URL is provided.
+const describeIfE2e = hasLedgerWriteEnv ? describe : describe.skip
+
+const SCHEMA_CONTRACT_ADDRESS =
+  process.env.SCHEMA_MANAGER_CONTRACT_ADDRESS ?? '0x70F88e12EaE54548839f320A5958C49421512A84'
 
 let schemaJSON: string
 let provider: ethers.JsonRpcProvider
 let wallet: ethers.Wallet
 
 const expectValidTransactionReceipt = (receipt: ContractTransactionReceipt, expectedStatus: number = 1) => {
-  // Core TransactionReceipt properties
   expect(receipt).toEqual(
     expect.objectContaining({
       hash: expect.any(String),
@@ -27,15 +35,17 @@ const expectValidTransactionReceipt = (receipt: ContractTransactionReceipt, expe
   )
 }
 
-describe('Client Schema Management:', () => {
+describeIfE2e('Client Schema Management (e2e):', () => {
   let client: EthereumSchemaRegistry
   let testSchemaId: string
   beforeAll(async () => {
     schemaJSON = JSON.stringify(testSchemaSample)
     const schemaRegistryConfig: SchemaRegistryConfig = {
-      signingKey: new SigningKey('0x3f6254328fa58202094c954d89964119830f85e2f4bfdbabb1d8bcfc008d2fdd'),
-      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
-      contractAddress: '0x70F88e12EaE54548839f320A5958C49421512A84',
+      signingKey: new SigningKey(
+        process.env.SCHEMA_TEST_PRIVATE_KEY ?? '0x3f6254328fa58202094c954d89964119830f85e2f4bfdbabb1d8bcfc008d2fdd'
+      ),
+      rpcUrl: SEPOLIA_RPC_URL,
+      contractAddress: SCHEMA_CONTRACT_ADDRESS,
     }
     client = new EthereumSchemaRegistry(schemaRegistryConfig)
 
@@ -95,7 +105,7 @@ describe('Client Schema Management:', () => {
   })
 })
 
-describe('Admin Schema Management:', () => {
+describeIfE2e('Admin Schema Management (e2e):', () => {
   let admin: EthereumSchemaRegistry
   let testSchemaId: string
   const otherWallet = ethers.Wallet.createRandom().connect(provider)
@@ -103,9 +113,11 @@ describe('Admin Schema Management:', () => {
   beforeAll(async () => {
     schemaJSON = JSON.stringify(testSchemaSample)
     const schemaRegistryAdminConfig = {
-      signingKey: new SigningKey('0xc0fe3af6dc7188d1badd556303c8e3f1d60c19df3d84a380a16335a2d9a9c65e'),
-      rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/API-KEY',
-      contractAddress: '0x70F88e12EaE54548839f320A5958C49421512A84',
+      signingKey: new SigningKey(
+        process.env.SCHEMA_ADMIN_PRIVATE_KEY ?? '0xc0fe3af6dc7188d1badd556303c8e3f1d60c19df3d84a380a16335a2d9a9c65e'
+      ),
+      rpcUrl: SEPOLIA_RPC_URL,
+      contractAddress: SCHEMA_CONTRACT_ADDRESS,
     }
     admin = new EthereumSchemaRegistry(schemaRegistryAdminConfig)
     testSchemaId = utils.uuid()
@@ -133,13 +145,6 @@ describe('Admin Schema Management:', () => {
     const newSchemaId = utils.uuid()
     await expect(admin.adminCreateSchema('invalid-address', newSchemaId, schemaJSON)).rejects.toThrow(ValidationError)
   })
-
-  //   it('should transfer ownership successfully', async () => {
-  //     const newOwner = '0x4444444444444444444444444444444444444444'
-  //     const result = await admin.transferOwnership(newOwner)
-
-  //     expectValidTransactionReceipt(result, 1)
-  //   })
 
   it('should throw ValidationError for invalid new owner address', async () => {
     await expect(admin.transferOwnership('invalid-address')).rejects.toThrow(ValidationError)
