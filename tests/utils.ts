@@ -35,7 +35,8 @@ export function getEthereumModules() {
           },
         ],
       },
-      schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
+      schemaManagerContractAddress:
+        process.env.SCHEMA_MANAGER_CONTRACT_ADDRESS ?? '0x70F88e12EaE54548839f320A5958C49421512A84',
       serverUrl: process.env.SCHEMA_SERVER_URL ?? 'https://dev-schema.ngotag.com',
       fileServerToken: process.env.SCHEMA_FILE_SERVER_TOKEN ?? '',
       rpcUrl: SEPOLIA_RPC_URL,
