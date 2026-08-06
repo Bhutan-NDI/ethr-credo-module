@@ -1,11 +1,16 @@
-import type { SchemaRegistryConfig } from './types/EthereumSchemaRegistry.types'
+import type { SchemaRegistryConfig } from './types/EthereumSchemaRegistry.types.js'
 import type { ContractTransactionReceipt } from 'ethers'
 
 import { Contract, isAddress, JsonRpcProvider, Wallet } from 'ethers'
+import { createRequire } from 'node:module'
 
-import abi from '../abi/SchemaRegistry.json'
+import { ContractError, NetworkError, ValidationError } from './types/EthereumSchemaRegistry.types.js'
 
-import { ContractError, NetworkError, ValidationError } from './types/EthereumSchemaRegistry.types'
+// Load the contract ABI without a static JSON import: under `nodenext` a JSON `import`
+// requires an `import ... with { type: 'json' }` attribute, which the repo's Prettier 2.x
+// cannot parse. `createRequire` keeps this Prettier-compatible and works in the ESM build.
+const require = createRequire(import.meta.url)
+const abi = require('../abi/SchemaRegistry.json')
 
 export class EthereumSchemaRegistry {
   private provider: JsonRpcProvider

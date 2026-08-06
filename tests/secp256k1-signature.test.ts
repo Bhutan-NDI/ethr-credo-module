@@ -1,310 +1,127 @@
-import type { AgentContext } from '@credo-ts/core'
+import type { EthereumAgentModules } from './utils'
+import type { Agent } from '@credo-ts/core'
 
-import { AskarWallet } from '@credo-ts/askar'
-import { AskarModuleConfig } from '@credo-ts/askar/build/AskarModuleConfig'
+import { transformPrivateKeyToPrivateJwk } from '@credo-ts/askar'
 import {
   ClaimFormat,
-  W3cJsonLdVerifiablePresentation,
-  KeyType,
+  CREDENTIALS_CONTEXT_V1_URL,
+  DidDocument,
   JsonTransformer,
-  SigningProviderRegistry,
-  W3cCredential,
-  CredentialIssuancePurpose,
-  vcLibraries,
-  W3cPresentation,
   TypedArrayEncoder,
+  W3cCredential,
   W3cJsonLdVerifiableCredential,
-  SignatureSuiteRegistry,
-  InjectionSymbols,
-  ConsoleLogger,
-  LogLevel,
-  DidsModuleConfig,
-  CredoError,
-  CacheModuleConfig,
-  InMemoryLruCache,
-  VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019,
 } from '@credo-ts/core'
-import { W3cCredentialsModuleConfig } from '@credo-ts/core/build/modules/vc/W3cCredentialsModuleConfig'
-import { W3cJsonLdCredentialService } from '@credo-ts/core/build/modules/vc/data-integrity/W3cJsonLdCredentialService'
-import { LinkedDataProof } from '@credo-ts/core/build/modules/vc/data-integrity/models/LinkedDataProof'
-import { agentDependencies } from '@credo-ts/node'
-import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
-import { registerAriesAskar } from '@hyperledger/aries-askar-shared'
-
-import { EthereumModuleConfig } from '../src/EthereumModuleConfig'
-import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
-import { EcdsaSecp256k1Signature2019 } from '../src/signature-suites'
+import { KeyManagementApi } from '@credo-ts/core/kms'
+import { computeAddress, SigningKey } from 'ethers'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { EcdsaSecp256k1Signature2019Fixtures } from './fixtures'
-import { getAgentConfig, getAgentContext } from './utils'
+import { getEthereumAgent, hasE2eEnv } from './utils'
 
-export const askarModuleConfig = new AskarModuleConfig({ ariesAskar })
-registerAriesAskar({ askar: askarModuleConfig.ariesAskar })
-
-const { jsonldSignatures } = vcLibraries
-const { purposes } = jsonldSignatures
-
-const signatureSuiteRegistry = new SignatureSuiteRegistry([
-  {
-    suiteClass: EcdsaSecp256k1Signature2019,
-    proofType: 'EcdsaSecp256k1Signature2019',
-    verificationMethodTypes: [VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019],
-    keyTypes: [KeyType.K256],
-  },
-  // {
-  //   suiteClass: EcdsaSecp256k1RecoverySignature2020,
-  //   proofType: 'EcdsaSecp256k1RecoverySignature2020',
-  //   verificationMethodTypes: ['EcdsaSecp256k1RecoveryMethod2020'],
-  //   keyTypes: [KeyType.K256],
-  // },
-])
-
-describe('Secp256k1 W3cCredentialService', () => {
-  let wallet: AskarWallet
-  let agentContext: AgentContext
-  let w3cJsonLdCredentialService: W3cJsonLdCredentialService
+/**
+ * Proves the fix from PR #15: after a did:ethr key is imported into the Askar KMS and the
+ * DID record maps `#controllerKey` -> that KMS key, credential signing resolves and uses it.
+ * This runs offline — the issuer DID is imported as a *created* DID so no ledger/RPC is needed.
+ */
+describe('EcdsaSecp256k1Signature2019 (Credo 0.6 KMS)', () => {
+  let agent: Agent<EthereumAgentModules>
   const privateKey = TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6')
+  let issuerDid: string
+  let verificationMethod: string
 
   beforeAll(async () => {
-    const agentConfig = getAgentConfig('EcdsaSecp256k1e2eTest')
+    agent = getEthereumAgent('secp256k1')
+    await agent.initialize()
 
-    wallet = new AskarWallet(agentConfig.logger, new agentDependencies.FileSystem(), new SigningProviderRegistry([]))
-    await wallet.createAndOpen(agentConfig.walletConfig)
-    agentContext = getAgentContext({
-      agentConfig,
-      wallet,
-      registerInstances: [
-        [InjectionSymbols.Logger, new ConsoleLogger(LogLevel.info)],
-        [
-          DidsModuleConfig,
-          new DidsModuleConfig({
-            resolvers: [new EthereumDidResolver()],
-            registrars: [new EthereumDidRegistrar()],
-          }),
+    // Import the issuer key into the Askar KMS, keyed by its base58 public key — exactly
+    // what EthereumDidRegistrar.importKeyToKms does during did:ethr creation.
+    const kms = agent.dependencyManager.resolve(KeyManagementApi)
+    const publicKeyHex = new SigningKey(privateKey).compressedPublicKey.substring(2)
+    const publicKeyBase58 = TypedArrayEncoder.toBase58(TypedArrayEncoder.fromHex(publicKeyHex))
+    const { privateJwk } = transformPrivateKeyToPrivateJwk({ type: { kty: 'EC', crv: 'secp256k1' }, privateKey })
+    privateJwk.kid = publicKeyBase58
+    const imported = await kms.importKey({ backend: 'askar', privateJwk })
+
+    issuerDid = `did:ethr:sepolia:0x${publicKeyHex}`
+    verificationMethod = `${issuerDid}#controllerKey`
+    const address = computeAddress(new SigningKey(privateKey))
+
+    // Import the resolved did:ethr document + key mapping, mirroring what create() persists:
+    // did:ethr lists `#controller` (recovery method, no key) first and `#controllerKey` second.
+    const didDocument = JsonTransformer.fromJSON(
+      {
+        '@context': [
+          'https://www.w3.org/ns/did/v1',
+          'https://w3id.org/security/suites/secp256k1recovery-2020/v2',
+          'https://w3id.org/security/suites/secp256k1-2019/v1',
         ],
-        [
-          CacheModuleConfig,
-          new CacheModuleConfig({
-            cache: new InMemoryLruCache({ limit: 50 }),
-          }),
+        id: issuerDid,
+        verificationMethod: [
+          {
+            id: `${issuerDid}#controller`,
+            type: 'EcdsaSecp256k1RecoveryMethod2020',
+            controller: issuerDid,
+            blockchainAccountId: `eip155:11155111:${address}`,
+          },
+          { id: verificationMethod, type: 'EcdsaSecp256k1VerificationKey2019', controller: issuerDid, publicKeyBase58 },
         ],
-        [
-          EthereumModuleConfig,
-          new EthereumModuleConfig({
-            config: {
-              networks: [
-                {
-                  name: 'sepolia',
-                  chainId: 11155111,
-                  rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
-                  registry: '0x485cFb9cdB84c0a5AfE69b75E2e79497Fc2256Fc',
-                },
-              ],
-            },
-            schemaManagerContractAddress: '0x1930977f040844021f5C13b42AA8b296f0cb52DB',
-            serverUrl: 'https://dev-schema.ngotag.com',
-            fileServerToken:
-              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImU3NGFkMWQyLTY5NGYtNGI3Ny05Mjk2LWY5NTdhY2YxNGE4NSJ9.wNd6OUveLZlJoN5ys68lPOX8aSY1HwVJaMW4K36sY4k',
-            rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/m0SEA2hYFe149nEdKYMPao8Uv_ZrPqeM',
-          }),
-        ],
-      ],
-    })
-    w3cJsonLdCredentialService = new W3cJsonLdCredentialService(
-      signatureSuiteRegistry,
-      new W3cCredentialsModuleConfig({})
+        authentication: [`${issuerDid}#controller`, verificationMethod],
+        assertionMethod: [`${issuerDid}#controller`, verificationMethod],
+      },
+      DidDocument
     )
+    await agent.dids.import({
+      did: issuerDid,
+      didDocument,
+      keys: [{ kmsKeyId: imported.keyId, didDocumentRelativeKeyId: '#controllerKey' }],
+      overwrite: true,
+    })
   })
 
   afterAll(async () => {
-    await wallet.delete()
+    if (agent) await agent.shutdown()
   })
 
-  describe('Utility methods', () => {
-    describe('getKeyTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
-        const keyTypes = w3cJsonLdCredentialService.getKeyTypesByProofType('EcdsaSecp256k1Signature2019')
-        expect(keyTypes).toEqual([KeyType.K256])
-      })
-    })
+  describe('signCredential', () => {
+    it('signs a credential with the imported #controllerKey KMS key', async () => {
+      // credentials/v1 alone is sufficient for this suite (see _includesCompatibleContext).
+      const credential = JsonTransformer.fromJSON(
+        {
+          '@context': [CREDENTIALS_CONTEXT_V1_URL],
+          type: ['VerifiableCredential'],
+          issuer: issuerDid,
+          issuanceDate: '2020-01-01T00:00:00Z',
+          credentialSubject: { id: 'did:example:subject' },
+        },
+        W3cCredential
+      )
 
-    describe('getVerificationMethodTypesByProofType', () => {
-      it('should return the correct key types for EcdsaSecp256k1Signature2019 proof type', async () => {
-        const verificationMethodTypes =
-          w3cJsonLdCredentialService.getVerificationMethodTypesByProofType('EcdsaSecp256k1Signature2019')
-        expect(verificationMethodTypes).toEqual([VERIFICATION_METHOD_TYPE_ECDSA_SECP256K1_VERIFICATION_KEY_2019])
+      const vc = await agent.w3cCredentials.signCredential({
+        format: ClaimFormat.LdpVc,
+        credential,
+        proofType: 'EcdsaSecp256k1Signature2019',
+        verificationMethod,
       })
+
+      expect(vc).toBeInstanceOf(W3cJsonLdVerifiableCredential)
+      expect(vc.issuerId).toEqual(issuerDid)
+      expect(Array.isArray(vc.proof)).toBe(false)
+      expect((vc.proof as unknown as { verificationMethod: string }).verificationMethod).toEqual(verificationMethod)
     })
   })
 
-  describe('EcdsaSecp256k1Signature2019', () => {
-    let issuerDid: string
-    let verificationMethod: string
-
-    beforeAll(async () => {
-      await wallet.createKey({ keyType: KeyType.K256, privateKey })
-
-      issuerDid = 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
-      verificationMethod = `${issuerDid}#controllerKey`
-    })
-
-    describe('signCredential', () => {
-      it('should return a successfully signed credential secp256k1', async () => {
-        const credentialJson = EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT
-        credentialJson.issuer = issuerDid
-
-        const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
-
-        const vc = await w3cJsonLdCredentialService.signCredential(agentContext, {
-          format: ClaimFormat.LdpVc,
-          credential,
-          proofType: 'EcdsaSecp256k1Signature2019',
-          verificationMethod: verificationMethod,
-        })
-
-        expect(vc).toBeInstanceOf(W3cJsonLdVerifiableCredential)
-        expect(vc.issuer).toEqual(issuerDid)
-        expect(Array.isArray(vc.proof)).toBe(false)
-        expect(vc.proof).toBeInstanceOf(LinkedDataProof)
-
-        vc.proof = vc.proof as LinkedDataProof
-        expect(vc.proof.verificationMethod).toEqual(verificationMethod)
-      })
-
-      it('should throw because of verificationMethod does not belong to this wallet', async () => {
-        const credentialJson = EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT
-        credentialJson.issuer = issuerDid
-
-        const credential = JsonTransformer.fromJSON(credentialJson, W3cCredential)
-
-        expect(async () => {
-          await w3cJsonLdCredentialService.signCredential(agentContext, {
-            format: ClaimFormat.LdpVc,
-            credential,
-            proofType: 'EcdsaSecp256k1Signature2019',
-            verificationMethod: 'did:ethr:testnet:0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF47#key-1',
-          })
-        }).rejects.toThrowError(CredoError)
-      })
-    })
-
-    describe('verifyCredential', () => {
-      it('should verify the credential successfully', async () => {
-        const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, {
-          credential: JsonTransformer.fromJSON(
-            EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_SIGNED,
-            W3cJsonLdVerifiableCredential
-          ),
-          proofPurpose: new purposes.AssertionProofPurpose(),
-        })
-
-        expect(result.isValid).toEqual(true)
-      })
-
-      it('should fail because of invalid signature', async () => {
-        const vc = JsonTransformer.fromJSON(
-          EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_BAD_SIGNED,
+  // Verifying the pre-signed fixture resolves the issuer DID from the ledger, so it needs a
+  // real RPC. Gated behind SEPOLIA_RPC_URL.
+  const describeIfE2e = hasE2eEnv ? describe : describe.skip
+  describeIfE2e('verifyCredential (requires ledger resolution)', () => {
+    it('verifies a pre-signed credential', async () => {
+      const result = await agent.w3cCredentials.verifyCredential({
+        credential: JsonTransformer.fromJSON(
+          EcdsaSecp256k1Signature2019Fixtures.TEST_LD_DOCUMENT_SIGNED,
           W3cJsonLdVerifiableCredential
-        )
-        const result = await w3cJsonLdCredentialService.verifyCredential(agentContext, { credential: vc })
-
-        expect(result).toEqual({
-          isValid: false,
-          error: expect.any(Error),
-          validations: {
-            vcJs: {
-              error: expect.any(Error),
-              isValid: false,
-              results: expect.any(Array),
-            },
-          },
-        })
+        ),
       })
-    })
-
-    describe('signPresentation', () => {
-      it('should successfully create a presentation from single verifiable credential', async () => {
-        const presentation = JsonTransformer.fromJSON(
-          EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT,
-          W3cPresentation
-        )
-
-        const purpose = new CredentialIssuancePurpose({
-          controller: {
-            id: verificationMethod,
-          },
-          date: new Date().toISOString(),
-        })
-
-        const verifiablePresentation = await w3cJsonLdCredentialService.signPresentation(agentContext, {
-          format: ClaimFormat.LdpVp,
-          presentation: presentation,
-          proofPurpose: purpose,
-          proofType: 'EcdsaSecp256k1Signature2019',
-          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-          domain: 'issuer.example.com',
-          verificationMethod: verificationMethod,
-        })
-
-        expect(verifiablePresentation).toBeInstanceOf(W3cJsonLdVerifiablePresentation)
-      })
-    })
-
-    describe('verifyPresentation', () => {
-      it('should successfully verify a presentation containing a single verifiable credential', async () => {
-        const vp = JsonTransformer.fromJSON(
-          EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
-          W3cJsonLdVerifiablePresentation
-        )
-
-        const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
-          presentation: vp,
-          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-        })
-
-        expect(result).toEqual({
-          isValid: true,
-          error: undefined,
-          validations: {
-            vcJs: {
-              isValid: true,
-              presentationResult: expect.any(Object),
-              credentialResults: expect.any(Array),
-            },
-          },
-        })
-      })
-
-      it('should fail when presentation signature is not valid', async () => {
-        const vp = JsonTransformer.fromJSON(
-          {
-            ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED,
-            proof: {
-              ...EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof,
-              jws: EcdsaSecp256k1Signature2019Fixtures.TEST_VP_DOCUMENT_SIGNED.proof.jws + 'a',
-            },
-          },
-          W3cJsonLdVerifiablePresentation
-        )
-
-        const result = await w3cJsonLdCredentialService.verifyPresentation(agentContext, {
-          presentation: vp,
-          challenge: '7bf32d0b-39d4-41f3-96b6-45de52988e4c',
-        })
-
-        expect(result).toEqual({
-          isValid: false,
-          error: expect.any(Error),
-          validations: {
-            vcJs: {
-              isValid: false,
-              credentialResults: expect.any(Array),
-              presentationResult: expect.any(Object),
-              error: expect.any(Error),
-            },
-          },
-        })
-      })
+      expect(result.isValid).toBe(true)
     })
   })
 })

@@ -1,4 +1,5 @@
 import { DidDocument } from '@credo-ts/core'
+import { describe, expect, it } from 'vitest'
 
 import { validateSpecCompliantPayload } from '../src/dids/didEthrUtil'
 
