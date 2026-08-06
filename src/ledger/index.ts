@@ -1,1 +1,1 @@
-export * from './EthereumLedgerService'
+export * from './EthereumLedgerService.js'
