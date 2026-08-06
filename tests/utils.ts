@@ -6,10 +6,14 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 import { EthereumModule } from '../src/EthereumModule'
 import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
 
-// Chain-dependent (e2e) tests need a real Sepolia RPC (and a funded key for writes).
+// Read-only ledger tests (did:ethr create/resolve) only need a Sepolia RPC.
 // They are skipped unless `SEPOLIA_RPC_URL` is provided so unit/CI runs stay offline.
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com'
 export const hasE2eEnv = Boolean(process.env.SEPOLIA_RPC_URL)
+
+// On-chain WRITE tests (schema create / schema-registry) additionally need a funded key,
+// the schema file server, and the deployed contracts — so they require an explicit opt-in.
+export const hasLedgerWriteEnv = hasE2eEnv && process.env.RUN_LEDGER_WRITE_TESTS === 'true'
 
 export type EthereumAgentModules = ReturnType<typeof getEthereumModules>
 

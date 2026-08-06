@@ -8,11 +8,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { EthereumLedgerError, SchemaCreationError, SchemaRetrievalError } from '../src/ledger/EthereumLedgerService'
 
 import { testSchemaSample } from './fixtures'
-import { getEthereumAgent, hasE2eEnv } from './utils'
+import { getEthereumAgent, hasLedgerWriteEnv } from './utils'
 
 // All schema operations write to / read from the Ethereum ledger and the schema file server,
 // so the whole suite requires a real RPC (and a funded key). Skipped unless SEPOLIA_RPC_URL is set.
-const describeIfE2e = hasE2eEnv ? describe : describe.skip
+const describeIfE2e = hasLedgerWriteEnv ? describe : describe.skip
 
 describeIfE2e('Schema Operations (e2e)', () => {
   let faberAgent: Agent<EthereumAgentModules>

@@ -9,11 +9,11 @@ import { EthereumSchemaRegistry } from '../src/schema/EthereumSchemaRegistry'
 import { ContractError, ValidationError } from '../src/schema/types/EthereumSchemaRegistry.types'
 
 import { testSchemaSample } from './fixtures'
-import { hasE2eEnv, SEPOLIA_RPC_URL } from './utils'
+import { hasLedgerWriteEnv, SEPOLIA_RPC_URL } from './utils'
 
 // These talk to a live schema-registry contract on Sepolia and need funded signing keys,
 // so they only run when SEPOLIA_RPC_URL is provided.
-const describeIfE2e = hasE2eEnv ? describe : describe.skip
+const describeIfE2e = hasLedgerWriteEnv ? describe : describe.skip
 
 const SCHEMA_CONTRACT_ADDRESS =
   process.env.SCHEMA_MANAGER_CONTRACT_ADDRESS ?? '0x70F88e12EaE54548839f320A5958C49421512A84'
