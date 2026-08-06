@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
-import type { Schema } from '../ledger/EthereumLedgerService'
+import type { Schema } from '../ledger/EthereumLedgerService.js'
 
 import axios from 'axios'
 import keccak256 from 'keccak256'

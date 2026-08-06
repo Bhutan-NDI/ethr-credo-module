@@ -1,9 +1,9 @@
-export { EthereumDidRegistrar, EthereumDidResolver } from './dids'
+export { EthereumDidRegistrar, EthereumDidResolver } from './dids/index.js'
 
-export { EthereumLedgerService } from './ledger'
+export { EthereumLedgerService } from './ledger/index.js'
 
-export { EthereumModule } from './EthereumModule'
+export { EthereumModule } from './EthereumModule.js'
 
-export { EthereumModuleConfig, EthereumModuleConfigOptions } from './EthereumModuleConfig'
+export { EthereumModuleConfig, EthereumModuleConfigOptions } from './EthereumModuleConfig.js'
 
-export * from './utils'
+export * from './utils/index.js'
