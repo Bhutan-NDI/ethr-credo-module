@@ -27,6 +27,8 @@ import { EthrDID } from 'ethr-did'
 
 import { EthereumLedgerService } from '../ledger/index.js'
 
+import { failedResult } from './didEthrUtil.js'
+
 export class EthereumDidRegistrar implements DidRegistrar {
   public readonly supportedMethods = ['ethr']
 
@@ -56,20 +58,25 @@ export class EthereumDidRegistrar implements DidRegistrar {
     // Reuse the key if it already exists under this kid, otherwise import it
     let publicJwk: KmsJwkPublic | undefined
     try {
-      publicJwk = await kmsApi.getPublicKey({ keyId: publicKeyBase58 })
+      publicJwk = await kmsApi.getPublicKey({ backend: 'askar', keyId: publicKeyBase58 })
     } catch (error) {
-      if (error instanceof KeyManagementKeyNotFoundError) {
-        agentContext.config.logger.debug(`Key not found in KMS, will import: ${publicKeyBase58}`)
+      // Only "key does not exist" is expected here; any other failure (backend/storage error)
+      // must surface rather than be silently treated as a missing key.
+      if (!(error instanceof KeyManagementKeyNotFoundError)) {
+        throw error
       }
+      agentContext.config.logger.debug(`Key not found in Askar KMS, will import: ${publicKeyBase58}`)
     }
 
     let keyId = publicKeyBase58
     if (!publicJwk) {
-      const importedKey = await kmsApi.importKey({ privateJwk })
+      // Pin the import to the Askar backend so the key lands in the same store that
+      // EthereumLedgerService.getSigningKey reads from (which is hard-wired to Askar).
+      const importedKey = await kmsApi.importKey({ backend: 'askar', privateJwk })
       keyId = importedKey.keyId
-      agentContext.config.logger.debug(`Imported new key to KMS: ${keyId}`)
+      agentContext.config.logger.debug(`Imported new key to Askar KMS: ${keyId}`)
     } else {
-      agentContext.config.logger.debug(`Key already exists in KMS: ${keyId}`)
+      agentContext.config.logger.debug(`Key already exists in Askar KMS: ${keyId}`)
     }
 
     return { publicKeyBase58, publicKeyHex, keyId }
@@ -81,7 +88,7 @@ export class EthereumDidRegistrar implements DidRegistrar {
 
     const privateKey = options.secret.privateKey
 
-    const { publicKeyHex, keyId } = await this.importKeyToKms(agentContext, privateKey)
+    const { publicKeyBase58, publicKeyHex, keyId } = await this.importKeyToKms(agentContext, privateKey)
 
     const ethrDid = new EthrDID({
       identifier: '0x' + publicKeyHex,
@@ -98,20 +105,22 @@ export class EthereumDidRegistrar implements DidRegistrar {
 
       const didDocument = JsonTransformer.fromJSON(resolvedDocument.didDocument, DidDocument)
 
+      // Link the imported KMS key to the verification method that actually holds it.
+      // did:ethr lists `#controller` (an EcdsaSecp256k1RecoveryMethod2020 with only a
+      // blockchainAccountId) first; the imported public key lives in `#controllerKey`.
+      // Match by public key, and persist the RELATIVE fragment — Credo's credential
+      // services resolve the key id against the verification method fragment.
+      const signingMethod = didDocument.verificationMethod?.find((vm) => vm.publicKeyBase58 === publicKeyBase58)
+      if (!signingMethod) {
+        return failedResult(`No verification method matching the imported key was found for did ${didDocument.id}`)
+      }
+      const didDocumentRelativeKeyId = `#${signingMethod.id.split('#').pop()}`
+
       const didRecord = new DidRecord({
         did: didDocument.id,
         role: DidDocumentRole.Created,
         didDocument,
-        // Link the imported KMS key to the DID's verification method so credential
-        // signing can resolve it. Matched via `verificationMethod.id.endsWith(...)`.
-        keys: didDocument.verificationMethod?.length
-          ? [
-              {
-                kmsKeyId: keyId,
-                didDocumentRelativeKeyId: didDocument.verificationMethod[0].id,
-              },
-            ]
-          : undefined,
+        keys: [{ kmsKeyId: keyId, didDocumentRelativeKeyId }],
       })
 
       agentContext.config.logger.info(`Saving DID record to wallet: ${didDocument.id} and did document: ${didDocument}`)

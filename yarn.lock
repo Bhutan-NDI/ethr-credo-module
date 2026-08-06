@@ -546,7 +546,7 @@
     human-id "^4.1.1"
     prettier "^2.7.1"
 
-"@credo-ts/askar@^0.6.1":
+"@credo-ts/askar@0.6.3":
   version "0.6.3"
   resolved "https://registry.yarnpkg.com/@credo-ts/askar/-/askar-0.6.3.tgz#747ce206787c593b1962358bde87eb2b9330bc2a"
   integrity sha512-tWwR5fLHMJSngtOhn/rG+8SEHhckyEblEqfgvoX+WQU88aCTJ7qWvpTH+VVXA9+XSp6MzvBAx2HBw9Ynijhp+Q==
@@ -557,7 +557,7 @@
     rxjs "^7.8.2"
     tsyringe "^4.10.0"
 
-"@credo-ts/core@0.6.3", "@credo-ts/core@^0.6.1":
+"@credo-ts/core@0.6.3":
   version "0.6.3"
   resolved "https://registry.yarnpkg.com/@credo-ts/core/-/core-0.6.3.tgz#1ffa3ad5d32b7febe857ca054e582466df64cfc9"
   integrity sha512-wGnYa58yj6gp3TUWKhH7D9PrQMW7fo4F5AEnR/aW5mxvguv5GaOC6ZeHPcl7UnLcNAWhSPKTcly7fEjpoGwyNA==
@@ -617,7 +617,7 @@
     query-string "^9.3.1"
     rxjs "^7.8.2"
 
-"@credo-ts/node@^0.6.1":
+"@credo-ts/node@0.6.3":
   version "0.6.3"
   resolved "https://registry.yarnpkg.com/@credo-ts/node/-/node-0.6.3.tgz#e7a4641d2117c5637f9b1655502aa757459292da"
   integrity sha512-VD2w+2nly6fi6Si3xMXX6XRmqz/2NLnk0XXAZTksqAIG4qGsRhX3fTUdOGI6pLtqnLvM3QWix6SRPLnf+2ZWtg==

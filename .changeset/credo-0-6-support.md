@@ -1,5 +1,5 @@
 ---
-'@bhutan-ndi/ethr-credo-module': minor
+'@bhutan-ndi/ethr-credo-module': major
 ---
 
 Add support for Credo (`@credo-ts/*`) 0.6.x.

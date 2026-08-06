@@ -19,7 +19,7 @@
   "scripts": {
     "build": "yarn run clean && yarn run compile",
     "clean": "rimraf -rf ./build",
-    "compile": "tsc -p tsconfig.build.json && cp -R src/abi build/abi",
+    "compile": "tsc -p tsconfig.build.json && node -e \"require('fs').cpSync('src/abi','build/abi',{recursive:true})\"",
     "prepublishOnly": "yarn run build",
     "check-types": "tsc --noEmit -p tsconfig.build.json",
     "check-format": "prettier --check .",
@@ -30,8 +30,6 @@
     "changeset-version": "yarn changeset version && yarn prettier --write ."
   },
   "dependencies": {
-    "@credo-ts/askar": "^0.6.1",
-    "@credo-ts/core": "^0.6.1",
     "axios": "^1.6.3",
     "did-resolver": "^4.1.0",
     "ethers": "^6.9.0",
@@ -39,9 +37,15 @@
     "ethr-did-resolver": "~11.0.4",
     "keccak256": "^1.0.6"
   },
+  "peerDependencies": {
+    "@credo-ts/askar": "^0.6.1",
+    "@credo-ts/core": "^0.6.1"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
-    "@credo-ts/node": "^0.6.1",
+    "@credo-ts/askar": "0.6.3",
+    "@credo-ts/core": "0.6.3",
+    "@credo-ts/node": "0.6.3",
     "@openwallet-foundation/askar-nodejs": "^0.4.3",
     "@types/jest": "^26.0.23",
     "@types/node": "^18.18.8",

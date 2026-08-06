@@ -1,9 +1,8 @@
 import type { SchemaRegistryConfig } from './types/EthereumSchemaRegistry.types.js'
 import type { ContractTransactionReceipt } from 'ethers'
 
-import { createRequire } from 'node:module'
-
 import { Contract, isAddress, JsonRpcProvider, Wallet } from 'ethers'
+import { createRequire } from 'node:module'
 
 import { ContractError, NetworkError, ValidationError } from './types/EthereumSchemaRegistry.types.js'
 
