@@ -8,7 +8,7 @@ import {
   VerificationMethod,
 } from '@credo-ts/core'
 
-import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites'
+import { SECURITY_CONTEXT_SECP256k1_RECOVERY_URL } from '../signature-suites/index.js'
 
 export function getSecp256k1DidDocWithPublicKey(
   did: string,

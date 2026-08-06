@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2017",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "ES2020",
     "declaration": true,
     "sourceMap": true,
     "strict": true,
     "noEmitOnError": true,
     "outDir": "./build",
-    "lib": ["es2015"],
+    "lib": ["es2020"],
     "types": [],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
