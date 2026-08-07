@@ -64,7 +64,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['jest.config.ts', '.eslintrc.js', './scripts/**'],
+      files: ['vitest.config.ts', '.eslintrc.js', './scripts/**'],
       env: {
         node: true,
       },
@@ -80,7 +80,7 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.ts', '**/__tests__/**', '**/tests/**', 'jest.*.ts', 'demo/**', '**/tests/**'],
+      files: ['*.test.ts', '**/__tests__/**', '**/tests/**', 'vitest.config.ts', 'demo/**', '**/tests/**'],
       env: {
         jest: true,
         node: false,

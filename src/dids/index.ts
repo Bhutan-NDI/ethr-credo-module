@@ -1,3 +1,3 @@
-export * from './EthrDidResolver'
-export * from './EthrDidRegistrar'
-export * from './didEthrUtil'
+export * from './EthrDidResolver.js'
+export * from './EthrDidRegistrar.js'
+export * from './didEthrUtil.js'

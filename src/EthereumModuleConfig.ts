@@ -1,4 +1,8 @@
-import type { ConfigurationOptions } from 'ethr-did-resolver/lib/configuration'
+import type { getResolver } from 'ethr-did-resolver'
+
+// `ethr-did-resolver` only exposes its package root via `exports`, so the config type is
+// derived from the public `getResolver` signature instead of a deep `/lib/configuration` import.
+type ConfigurationOptions = Parameters<typeof getResolver>[0]
 
 /**
  * EthereumModuleConfigOptions defines the interface for the options of the EthereumModuleConfig class.

@@ -1,6 +1,6 @@
 import { AgentContext, injectable } from '@credo-ts/core'
 
-import { EthereumLedgerService } from './ledger'
+import { EthereumLedgerService } from './ledger/index.js'
 
 @injectable()
 export class EthereumApi {
