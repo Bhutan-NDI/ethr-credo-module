@@ -11,9 +11,20 @@ import { EthereumDidRegistrar, EthereumDidResolver } from '../src/dids'
 export const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com'
 export const hasE2eEnv = Boolean(process.env.SEPOLIA_RPC_URL)
 
-// On-chain WRITE tests (schema create / schema-registry) additionally need a funded key,
-// the schema file server, and the deployed contracts — so they require an explicit opt-in.
-export const hasLedgerWriteEnv = hasE2eEnv && process.env.RUN_LEDGER_WRITE_TESTS === 'true'
+// On-chain WRITE tests (schema create / schema-registry) do real transactions, so they are an
+// explicit opt-in. When opted in, each suite `requireEnv(...)`s its specific inputs and fails
+// fast (rather than silently using placeholders) if any are missing.
+export const runLedgerWriteTests = process.env.RUN_LEDGER_WRITE_TESTS === 'true'
+
+export function requireEnv(...names: string[]): void {
+  const missing = names.filter((name) => !process.env[name]?.trim())
+  if (missing.length > 0) {
+    throw new Error(
+      `These on-chain write tests require the following environment variable(s): ${missing.join(', ')}. ` +
+        `Set them (see .env) or unset RUN_LEDGER_WRITE_TESTS to skip.`
+    )
+  }
+}
 
 export type EthereumAgentModules = ReturnType<typeof getEthereumModules>
 

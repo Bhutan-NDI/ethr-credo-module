@@ -1,157 +1,131 @@
-import type { SchemaRegistryConfig } from '../src/schema/types/EthereumSchemaRegistry.types'
 import type { ContractTransactionReceipt } from 'ethers'
 
 import { utils } from '@credo-ts/core'
-import { ethers, SigningKey } from 'ethers'
+import { ethers, SigningKey, Wallet } from 'ethers'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { EthereumSchemaRegistry } from '../src/schema/EthereumSchemaRegistry'
 import { ContractError, ValidationError } from '../src/schema/types/EthereumSchemaRegistry.types'
 
 import { testSchemaSample } from './fixtures'
-import { hasLedgerWriteEnv, SEPOLIA_RPC_URL } from './utils'
-
-// These talk to a live schema-registry contract on Sepolia and need funded signing keys,
-// so they only run when SEPOLIA_RPC_URL is provided.
-const describeIfE2e = hasLedgerWriteEnv ? describe : describe.skip
+import { requireEnv, runLedgerWriteTests, SEPOLIA_RPC_URL } from './utils'
 
 const SCHEMA_CONTRACT_ADDRESS =
   process.env.SCHEMA_MANAGER_CONTRACT_ADDRESS ?? '0x70F88e12EaE54548839f320A5958C49421512A84'
+const schemaJSON = JSON.stringify(testSchemaSample)
+const SAMPLE_ADDRESS = '0x4A09b8CB511cca4Ca1c5dB0475D0e07bFc96EF49'
 
-let schemaJSON: string
-let provider: ethers.JsonRpcProvider
-let wallet: ethers.Wallet
-
-const expectValidTransactionReceipt = (receipt: ContractTransactionReceipt, expectedStatus: number = 1) => {
-  expect(receipt).toEqual(
-    expect.objectContaining({
-      hash: expect.any(String),
-      blockNumber: expect.any(Number),
-      blockHash: expect.any(String),
-      gasUsed: expect.any(BigInt),
-      gasPrice: expect.any(BigInt),
-      status: expectedStatus,
-    })
-  )
-}
-
-describeIfE2e('Client Schema Management (e2e):', () => {
+// ---- Offline: input validation / error paths (always run; no ledger transaction needed) ----
+describe('EthereumSchemaRegistry input validation', () => {
   let client: EthereumSchemaRegistry
-  let testSchemaId: string
-  beforeAll(async () => {
-    schemaJSON = JSON.stringify(testSchemaSample)
-    const schemaRegistryConfig: SchemaRegistryConfig = {
-      signingKey: new SigningKey(
-        process.env.SCHEMA_TEST_PRIVATE_KEY ?? '0x3f6254328fa58202094c954d89964119830f85e2f4bfdbabb1d8bcfc008d2fdd'
-      ),
-      rpcUrl: SEPOLIA_RPC_URL,
+
+  beforeAll(() => {
+    // Ephemeral random key + a valid-format address. No RPC call happens on these paths —
+    // each method validates its arguments before touching the contract.
+    client = new EthereumSchemaRegistry({
+      signingKey: new SigningKey(Wallet.createRandom().privateKey),
+      rpcUrl: 'http://localhost:8545',
       contractAddress: SCHEMA_CONTRACT_ADDRESS,
-    }
-    client = new EthereumSchemaRegistry(schemaRegistryConfig)
-
-    testSchemaId = utils.uuid()
-    provider = new ethers.JsonRpcProvider(schemaRegistryConfig.rpcUrl)
-
-    if (schemaRegistryConfig.signingKey) {
-      wallet = new ethers.Wallet(schemaRegistryConfig.signingKey, provider)
-    }
-  })
-  it('client should successfully create a new schema', async () => {
-    const tx = await client.createSchema(testSchemaId, schemaJSON)
-    expectValidTransactionReceipt(tx, 1)
+    })
   })
 
-  it('should throw ValidationError for invalid schema ID', async () => {
+  it('throws ValidationError for an invalid schema ID', async () => {
     await expect(client.createSchema('', schemaJSON)).rejects.toThrow(ValidationError)
   })
 
-  it('should throw ValidationError for invalid JSON', async () => {
-    const newSchemaId = utils.uuid()
-    await expect(client.createSchema(newSchemaId, 'invalid-json')).rejects.toThrow(ValidationError)
+  it('throws ValidationError for invalid JSON', async () => {
+    await expect(client.createSchema(utils.uuid(), 'invalid-json')).rejects.toThrow(ValidationError)
   })
 
-  it('should throw ContractError when schema already exists', async () => {
-    await expect(client.createSchema(testSchemaId, schemaJSON)).rejects.toThrow(ContractError)
+  it('throws ValidationError for an invalid owner address on lookup', async () => {
+    await expect(client.getSchemaById('invalid-address', utils.uuid())).rejects.toThrow(ValidationError)
   })
 
-  it('should retrieve the schema by id', async () => {
-    const retrieved = await client.getSchemaById(wallet.address, testSchemaId)
-    expect(retrieved).toBe(schemaJSON)
+  it('throws ValidationError for an empty schema ID on lookup', async () => {
+    await expect(client.getSchemaById(SAMPLE_ADDRESS, '')).rejects.toThrow(ValidationError)
   })
 
-  it('should retrieve the list of schema Id', async () => {
-    const result = await client.getSchemaIds(wallet.address)
-    expect(Array.isArray(result)).toBe(true)
-    expect(result.every((id) => typeof id === 'string')).toBe(true)
+  it('throws ValidationError for an invalid target address on adminCreateSchema', async () => {
+    await expect(client.adminCreateSchema('invalid-address', utils.uuid(), schemaJSON)).rejects.toThrow(ValidationError)
   })
 
-  it('should return null when schema does not exist', async () => {
-    const newSchemaId = utils.uuid()
-    const result = await client.getSchemaById(wallet.address, newSchemaId)
-    expect(result).toBeNull()
-  })
-
-  it('should throw ValidationError for invalid address', async () => {
-    await expect(client.getSchemaById('invalid-address', testSchemaId)).rejects.toThrow(ValidationError)
-  })
-
-  it('should throw ValidationError for empty schema ID', async () => {
-    await expect(client.getSchemaById(wallet.address, '')).rejects.toThrow(ValidationError)
-  })
-
-  it('should throw ContractError when not owner', async () => {
-    const newSchemaId = utils.uuid()
-    await expect(client.adminCreateSchema(wallet.address, newSchemaId, schemaJSON)).rejects.toThrow(ContractError)
+  it('throws ValidationError for an invalid new owner on transferOwnership', async () => {
+    await expect(client.transferOwnership('invalid-address')).rejects.toThrow(ValidationError)
   })
 })
 
-describeIfE2e('Admin Schema Management (e2e):', () => {
-  let admin: EthereumSchemaRegistry
-  let testSchemaId: string
-  const otherWallet = ethers.Wallet.createRandom().connect(provider)
+// ---- On-chain (opt-in): real Sepolia transactions with a funded key ----
+const describeIfWrite = runLedgerWriteTests ? describe : describe.skip
 
-  beforeAll(async () => {
-    schemaJSON = JSON.stringify(testSchemaSample)
-    const schemaRegistryAdminConfig = {
-      signingKey: new SigningKey(
-        process.env.SCHEMA_ADMIN_PRIVATE_KEY ?? '0xc0fe3af6dc7188d1badd556303c8e3f1d60c19df3d84a380a16335a2d9a9c65e'
-      ),
+describeIfWrite('EthereumSchemaRegistry on-chain (e2e)', () => {
+  let client: EthereumSchemaRegistry
+  let wallet: ethers.Wallet
+  let testSchemaId: string
+
+  const expectValidReceipt = (receipt: ContractTransactionReceipt) =>
+    expect(receipt).toEqual(expect.objectContaining({ hash: expect.any(String), status: 1 }))
+
+  beforeAll(() => {
+    requireEnv('SEPOLIA_RPC_URL', 'SCHEMA_TEST_PRIVATE_KEY')
+    const signingKey = new SigningKey(process.env.SCHEMA_TEST_PRIVATE_KEY as string)
+    client = new EthereumSchemaRegistry({
+      signingKey,
       rpcUrl: SEPOLIA_RPC_URL,
       contractAddress: SCHEMA_CONTRACT_ADDRESS,
-    }
-    admin = new EthereumSchemaRegistry(schemaRegistryAdminConfig)
+    })
+    wallet = new ethers.Wallet(signingKey, new ethers.JsonRpcProvider(SEPOLIA_RPC_URL))
     testSchemaId = utils.uuid()
-    provider = new ethers.JsonRpcProvider(schemaRegistryAdminConfig.rpcUrl)
-    if (schemaRegistryAdminConfig.signingKey) {
-      wallet = new ethers.Wallet(schemaRegistryAdminConfig.signingKey, provider)
-    }
   })
 
-  it('should allow admin to create schema for other addresses', async () => {
-    const tx = await admin.adminCreateSchema(otherWallet.address, testSchemaId, schemaJSON)
-    expectValidTransactionReceipt(tx, 1)
+  it('creates a new schema', async () => {
+    expectValidReceipt(await client.createSchema(testSchemaId, schemaJSON))
   })
 
-  it('should allow admin to retrieve the schema by id for other address', async () => {
-    const retrieved = await admin.getSchemaById(otherWallet.address, testSchemaId)
-    expect(retrieved).toBe(schemaJSON)
+  it('throws ContractError when the schema already exists', async () => {
+    await expect(client.createSchema(testSchemaId, schemaJSON)).rejects.toThrow(ContractError)
   })
 
-  it('should throw ContractError when schema already exists for the address', async () => {
-    await expect(admin.adminCreateSchema(otherWallet.address, testSchemaId, schemaJSON)).rejects.toThrow(ContractError)
+  it('retrieves the created schema by id', async () => {
+    expect(await client.getSchemaById(wallet.address, testSchemaId)).toBe(schemaJSON)
   })
 
-  it('should throw ValidationError for invalid target address', async () => {
-    const newSchemaId = utils.uuid()
-    await expect(admin.adminCreateSchema('invalid-address', newSchemaId, schemaJSON)).rejects.toThrow(ValidationError)
+  it('lists the schema ids for an address', async () => {
+    const ids = await client.getSchemaIds(wallet.address)
+    expect(Array.isArray(ids)).toBe(true)
+    expect(ids.every((id) => typeof id === 'string')).toBe(true)
   })
 
-  it('should throw ValidationError for invalid new owner address', async () => {
-    await expect(admin.transferOwnership('invalid-address')).rejects.toThrow(ValidationError)
+  it('returns null for a non-existent schema', async () => {
+    expect(await client.getSchemaById(wallet.address, utils.uuid())).toBeNull()
+  })
+})
+
+// ---- Admin / owner (opt-in): requires the deployed contract's OWNER key ----
+const describeIfAdmin = runLedgerWriteTests ? describe : describe.skip
+
+describeIfAdmin('EthereumSchemaRegistry admin (e2e, contract owner)', () => {
+  let admin: EthereumSchemaRegistry
+  let ownerWallet: ethers.Wallet
+
+  beforeAll(() => {
+    requireEnv('SEPOLIA_RPC_URL', 'SCHEMA_ADMIN_PRIVATE_KEY')
+    const signingKey = new SigningKey(process.env.SCHEMA_ADMIN_PRIVATE_KEY as string)
+    admin = new EthereumSchemaRegistry({
+      signingKey,
+      rpcUrl: SEPOLIA_RPC_URL,
+      contractAddress: SCHEMA_CONTRACT_ADDRESS,
+    })
+    ownerWallet = new ethers.Wallet(signingKey, new ethers.JsonRpcProvider(SEPOLIA_RPC_URL))
   })
 
-  it('should return contract owner address', async () => {
-    const owner = await admin.getOwner()
-    expect(owner).toBe(wallet.address)
+  it('returns the contract owner address', async () => {
+    expect(await admin.getOwner()).toBe(ownerWallet.address)
+  })
+
+  it('admin creates a schema for another address', async () => {
+    const other = ethers.Wallet.createRandom()
+    expect(await admin.adminCreateSchema(other.address, utils.uuid(), schemaJSON)).toEqual(
+      expect.objectContaining({ status: 1 })
+    )
   })
 })

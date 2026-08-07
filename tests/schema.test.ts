@@ -8,19 +8,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { EthereumLedgerError, SchemaCreationError, SchemaRetrievalError } from '../src/ledger/EthereumLedgerService'
 
 import { testSchemaSample } from './fixtures'
-import { getEthereumAgent, hasLedgerWriteEnv } from './utils'
+import { getEthereumAgent, requireEnv, runLedgerWriteTests } from './utils'
 
-// All schema operations write to / read from the Ethereum ledger and the schema file server,
-// so the whole suite requires a real RPC (and a funded key). Skipped unless SEPOLIA_RPC_URL is set.
-const describeIfE2e = hasLedgerWriteEnv ? describe : describe.skip
+// Schema operations write to / read from the Ethereum ledger and the schema file server, so
+// they are an explicit opt-in (RUN_LEDGER_WRITE_TESTS) and fail fast if their inputs are missing.
+const describeIfE2e = runLedgerWriteTests ? describe : describe.skip
 
 describeIfE2e('Schema Operations (e2e)', () => {
   let faberAgent: Agent<EthereumAgentModules>
-  const privateKey = TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6')
+  let privateKey: Uint8Array
   let did: string
   let schemaId: string
 
   beforeAll(async () => {
+    requireEnv('SEPOLIA_RPC_URL', 'ETHR_TEST_PRIVATE_KEY', 'SCHEMA_FILE_SERVER_TOKEN')
+    privateKey = TypedArrayEncoder.fromHex(process.env.ETHR_TEST_PRIVATE_KEY as string)
     faberAgent = getEthereumAgent('faber')
     await faberAgent.initialize()
     const createdDid = await faberAgent.dids.create<EthereumDidCreateOptions>({

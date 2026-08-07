@@ -86,18 +86,20 @@ export class EthereumDidRegistrar implements DidRegistrar {
     const ledgerService = agentContext.dependencyManager.resolve(EthereumLedgerService)
     const didRepository = agentContext.dependencyManager.resolve(DidRepository)
 
-    const privateKey = options.secret.privateKey
-
-    const { publicKeyBase58, publicKeyHex, keyId } = await this.importKeyToKms(agentContext, privateKey)
-
-    const ethrDid = new EthrDID({
-      identifier: '0x' + publicKeyHex,
-      chainNameOrId: options.options.network,
-    })
-
-    agentContext.config.logger.info(`Creating DID on ledger: ${ethrDid.did}`)
-
     try {
+      // Key preparation is inside the try so an invalid key or a KMS/backend failure
+      // resolves to a failed DidCreateResult instead of rejecting agent.dids.create().
+      const privateKey = options.secret.privateKey
+
+      const { publicKeyBase58, publicKeyHex, keyId } = await this.importKeyToKms(agentContext, privateKey)
+
+      const ethrDid = new EthrDID({
+        identifier: '0x' + publicKeyHex,
+        chainNameOrId: options.options.network,
+      })
+
+      agentContext.config.logger.info(`Creating DID on ledger: ${ethrDid.did}`)
+
       // DID Document
       const resolvedDocument = await ledgerService.resolveDID(ethrDid.did)
 

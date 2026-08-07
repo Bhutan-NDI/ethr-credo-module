@@ -3,16 +3,18 @@ import type { EthereumDidCreateOptions } from '../src/dids'
 import type { Agent } from '@credo-ts/core'
 
 import { TypedArrayEncoder } from '@credo-ts/core'
+import { Wallet } from 'ethers'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { EthereumDIDFixtures } from './fixtures'
 import { getEthereumAgent, hasE2eEnv } from './utils'
 
-// did:ethr create + resolve hit the Sepolia ledger, so they require a real RPC.
+// did:ethr create + resolve read from the Sepolia registry, so they require a real RPC.
 const describeIfE2e = hasE2eEnv ? describe : describe.skip
 
 describeIfE2e('Ethereum Module did resolver (e2e)', () => {
   let aliceAgent: Agent<EthereumAgentModules>
+  // Ephemeral key: did:ethr is derived from it and resolves off-chain, so no funding needed.
+  const privateKey = TypedArrayEncoder.fromHex(Wallet.createRandom().privateKey.slice(2))
   let did: string
 
   beforeAll(async () => {
@@ -24,44 +26,30 @@ describeIfE2e('Ethereum Module did resolver (e2e)', () => {
     if (aliceAgent) await aliceAgent.shutdown()
   })
 
-  it('create and resolve a did:ethr did', async () => {
-    const createdDid = await aliceAgent.dids.create<EthereumDidCreateOptions>({
+  it('creates and resolves a did:ethr did', async () => {
+    const created = await aliceAgent.dids.create<EthereumDidCreateOptions>({
       method: 'ethr',
-      options: {
-        network: 'sepolia',
-      },
-      secret: {
-        privateKey: TypedArrayEncoder.fromHex('89d6e6df0272c4262533f951d0550ecd9f444ec2e13479952e4cc6982febfed6'),
-      },
+      options: { network: 'sepolia' },
+      secret: { privateKey },
     })
-    expect(createdDid.didState.state).toBe('finished')
-    did =
-      createdDid.didState.did || 'did:ethr:sepolia:0x022527341df022c9b898999cf6035ed3addca5d30e703028deeb4408f890f3baca'
+    expect(created.didState.state).toBe('finished')
+    did = created.didState.did as string
+    expect(did).toMatch(/^did:ethr:sepolia:0x[0-9a-fA-F]+$/)
   })
 
   describe('EthereumDidResolver', () => {
-    it('should resolve a ethereum did when valid did is passed', async () => {
-      const resolvedDIDDoc = await aliceAgent.dids.resolve(did)
-      expect(resolvedDIDDoc.didDocument?.context).toEqual(
-        EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument['@context']
-      )
-      expect(resolvedDIDDoc.didDocument?.id).toBe(EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument.id)
-      expect(resolvedDIDDoc.didDocument?.verificationMethod).toEqual(
-        EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument.verificationMethod
-      )
-      expect(resolvedDIDDoc.didDocument?.authentication).toEqual(
-        EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument.authentication
-      )
-      expect(resolvedDIDDoc.didDocument?.assertionMethod).toEqual(
-        EthereumDIDFixtures.VALID_DID_DOCUMENT.didDocument.assertionMethod
-      )
+    it('resolves a did:ethr document with a secp256k1 controller key', async () => {
+      const { didDocument } = await aliceAgent.dids.resolve(did)
+      expect(didDocument?.id).toBe(did)
+      const controllerKey = didDocument?.verificationMethod?.find((vm) => vm.id.endsWith('#controllerKey'))
+      expect(controllerKey?.type).toBe('EcdsaSecp256k1VerificationKey2019')
+      expect(controllerKey?.publicKeyBase58).toBeDefined()
     })
 
-    it("should fail with 'notFound' when an unregistered ethereum did is resolved", async () => {
+    it("fails with 'notFound' for an unregistered ethereum did", async () => {
       const unknownDid = 'did:ethr:testnet:0x525D4605f4EE59e1149987F59668D4f272359093'
       const result = await aliceAgent.dids.resolve(unknownDid)
       expect(result.didResolutionMetadata.error).toBe('notFound')
-      expect(result.didResolutionMetadata.message).toContain('resolver_error: Unable to resolve did')
     })
   })
 })

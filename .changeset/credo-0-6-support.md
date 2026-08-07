@@ -19,6 +19,6 @@ proven in `@ayanworks/credo-polygon-w3c-module`:
 - Ledger signing fetches the key through `AskarStoreManager` instead of the removed
   `agentContext.wallet` API (signing itself still uses ethers `SigningKey`).
 
-**Breaking:** requires `@credo-ts/core`/`@credo-ts/askar` `^0.6.1` and Node's ESM
+**Breaking:** requires `@credo-ts/core`/`@credo-ts/askar` `^0.6.3` and Node's ESM
 module resolution (the package is now `"type": "module"`). The unused
 `getSecp256k1DidDoc` helper was removed.
