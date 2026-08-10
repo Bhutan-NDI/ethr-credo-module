@@ -26,7 +26,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "lint": "eslint --ignore-path .gitignore .",
-    "release": "yarn build && yarn changeset publish --no-git-tag",
+    "release": "yarn build && yarn changeset publish",
     "changeset-version": "yarn changeset version && yarn prettier --write ."
   },
   "dependencies": {
