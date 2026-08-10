@@ -1,15 +1,15 @@
-import type { AgentContext, Wallet } from '@credo-ts/core'
+import type { AgentContext } from '@credo-ts/core'
 
-import { AskarProfileWallet, AskarWallet } from '@credo-ts/askar'
-import { CredoError, DidRepository, TypedArrayEncoder, WalletError, injectable, utils } from '@credo-ts/core'
+import { AskarStoreManager } from '@credo-ts/askar'
+import { CredoError, DidRepository, TypedArrayEncoder, injectable, utils } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { SigningKey } from 'ethers'
 import { getResolver } from 'ethr-did-resolver'
 
-import { EthereumModuleConfig } from '../EthereumModuleConfig'
-import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry'
-import { buildSchemaResource, getSchemaFile, uploadSchemaFile } from '../utils/schemaHelper'
-import { getPreferredKey, parseAddress } from '../utils/utils'
+import { EthereumModuleConfig } from '../EthereumModuleConfig.js'
+import { EthereumSchemaRegistry } from '../schema/EthereumSchemaRegistry.js'
+import { buildSchemaResource, getSchemaFile, uploadSchemaFile } from '../utils/schemaHelper.js'
+import { getPreferredKey, parseAddress } from '../utils/utils.js'
 
 /**
  * Custom error classes for better error handling
@@ -108,7 +108,7 @@ export class EthereumLedgerService {
         throw new CredoError('Public Key not found in wallet')
       }
 
-      const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
+      const signingKey = await this.getSigningKey(agentContext, keyResult.publicKeyBase58)
 
       const ethSchemaRegistry = new EthereumSchemaRegistry({
         contractAddress: this.schemaManagerContractAddress,
@@ -214,7 +214,7 @@ export class EthereumLedgerService {
 
       const address = parseAddress(keyResult.blockchainAccountId)
       const schemaResource = await buildSchemaResource(did, schemaId, schemaName, schemaJson, address)
-      const signingKey = await this.getSigningKey(agentContext.wallet, keyResult.publicKeyBase58)
+      const signingKey = await this.getSigningKey(agentContext, keyResult.publicKeyBase58)
 
       const ethSchemaRegistry = new EthereumSchemaRegistry({
         contractAddress: this.schemaManagerContractAddress,
@@ -306,15 +306,16 @@ export class EthereumLedgerService {
     }
   }
 
-  private async getSigningKey(wallet: Wallet, publicKeyBase58: string): Promise<SigningKey> {
-    if (!(wallet instanceof AskarWallet) && !(wallet instanceof AskarProfileWallet)) {
-      throw new CredoError('Incorrect wallet type: Ethereum Module currently only supports Askar wallet')
-    }
+  private async getSigningKey(agentContext: AgentContext, publicKeyBase58: string): Promise<SigningKey> {
+    const askarStoreManager = agentContext.dependencyManager.resolve(AskarStoreManager)
 
-    const keyEntry = await wallet.withSession(async (session) => await session.fetchKey({ name: publicKeyBase58 }))
+    const keyEntry = await askarStoreManager.withSession(
+      agentContext,
+      async (session) => await session.fetchKey({ name: publicKeyBase58 })
+    )
 
     if (!keyEntry) {
-      throw new WalletError('Key not found in wallet')
+      throw new CredoError('Key not found in wallet')
     }
 
     const signingKey = new SigningKey(keyEntry.key.secretBytes)

@@ -9,7 +9,7 @@
     "paths": {
       "credo-ethr-module/*": ["src"]
     },
-    "types": ["jest", "node"]
+    "types": ["node"]
   },
   "exclude": ["node_modules", "build"]
 }
