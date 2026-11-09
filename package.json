@@ -14,7 +14,7 @@
   "homepage": "https://github.com/Bhutan-NDI/ethr-credo-module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Bhutan-NDI/ethr-credo-module"
+    "url": "git+https://github.com/Bhutan-NDI/ethr-credo-module.git"
   },
   "scripts": {
     "build": "yarn run clean && yarn run compile",
