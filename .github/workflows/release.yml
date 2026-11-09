@@ -36,8 +36,9 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@^11.5.1
 
+      # Releases only compile TypeScript, so skip native install scripts (askar binary download).
       - name: Install Dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Create Release Pull Request or Publish
         id: changesets
@@ -80,7 +81,7 @@ jobs:
         run: npm install -g npm@^11.5.1
 
       - name: Install Dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Create snapshot release
         env:
