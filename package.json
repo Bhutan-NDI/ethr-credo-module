@@ -31,11 +31,11 @@
   },
   "dependencies": {
     "axios": "^1.6.3",
+    "canonicalize": "^5.1.0",
     "did-resolver": "^4.1.0",
     "ethers": "^6.9.0",
     "ethr-did": "^3.0.38",
-    "ethr-did-resolver": "~11.0.4",
-    "keccak256": "^1.0.6"
+    "ethr-did-resolver": "~11.0.4"
   },
   "peerDependencies": {
     "@credo-ts/askar": "^0.6.3",
