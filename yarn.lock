@@ -1843,10 +1843,10 @@ canonicalize@^2.0.0:
   resolved "https://registry.yarnpkg.com/canonicalize/-/canonicalize-2.1.0.tgz#92a20ecfb94e96591badf4977dc2fb1bfbc31dc5"
   integrity sha512-F705O3xrsUtgt98j7leetNhTWPe+5S72rlL5O4jA1pKqBVQ/dT1O1D6PFxmSXvc0SUOinWS57DKx0I3CHrXJHQ==
 
-canonicalize@^5.1.0:
-  version "5.1.0"
-  resolved "https://registry.yarnpkg.com/canonicalize/-/canonicalize-5.1.0.tgz#4e429a81a542933e8db7647b7e916cbdb60d272c"
-  integrity sha512-bab9+WefZljqQ8jT0qRwVmTyzAUU63K97QIQD3agynIBrb6sa5M2eAy8Hv8K3p4V9+ONVYZKtGYl4Dg+/5Gumw==
+canonicalize@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/canonicalize/-/canonicalize-4.0.0.tgz#b13b8e26b9043a56cb751c27bee8e0c2203bb9cc"
+  integrity sha512-FEdXzwWs+N3rZqEqpqleiY9M1A6IAf9oo1zHFABnLW9FcJ/jzsu+G/Ks3Hq3FglmPKe80GeGBw8ZXLEnwPB0vQ==
 
 chai@^6.2.2:
   version "6.2.2"
