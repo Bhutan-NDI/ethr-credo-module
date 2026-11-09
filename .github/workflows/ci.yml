@@ -21,15 +21,15 @@ jobs:
     name: Validate
     steps:
       - name: Checkout credo-ethr-module
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup NodeJS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: 'yarn'
 
-      # No step here needs native binaries; skipping scripts avoids the askar binary download.
+      # Skips the askar binary download; a test step would need install scripts (tests/setup.ts loads askar).
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 

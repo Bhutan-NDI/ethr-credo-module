@@ -24,10 +24,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup NodeJS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
@@ -69,10 +69,10 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup NodeJS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -87,18 +87,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
           yarn changeset version --snapshot alpha
+          CURRENT_PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          # Without a changeset the version is unchanged; publishing it would release a stable version under alpha.
+          if [ "$CURRENT_PACKAGE_VERSION" = "$BASE_VERSION" ]; then
+            echo "No changeset, nothing to snapshot."
+            exit 0
+          fi
+
           yarn prettier --write .
           yarn build
           yarn changeset publish --tag alpha
-
-          CURRENT_PACKAGE_VERSION=$(node -p "require('./package.json').version")
-
-          # Without a changeset no snapshot version is created, so the tag already exists.
-          if git ls-remote --exit-code --tags origin "refs/tags/v$CURRENT_PACKAGE_VERSION" > /dev/null; then
-            echo "No snapshot published for v$CURRENT_PACKAGE_VERSION; skipping tag."
-            exit 0
-          fi
 
           git config --global user.name "Bhutan NDI"
           git config --global user.email "github@bhutanndi.bt"
