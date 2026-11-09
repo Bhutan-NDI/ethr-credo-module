@@ -96,6 +96,12 @@ jobs:
 
           CURRENT_PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
+          # Without a changeset no snapshot version is created, so the tag already exists.
+          if git ls-remote --exit-code --tags origin "refs/tags/v$CURRENT_PACKAGE_VERSION" > /dev/null; then
+            echo "No snapshot published for v$CURRENT_PACKAGE_VERSION; skipping tag."
+            exit 0
+          fi
+
           git config --global user.name "Bhutan NDI"
           git config --global user.email "github@bhutanndi.bt"
 
