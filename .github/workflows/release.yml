@@ -84,6 +84,7 @@ jobs:
       - name: Create snapshot release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_loglevel: verbose
         run: |
           BASE_VERSION=$(node -p "require('./package.json').version")
           yarn changeset version --snapshot alpha
