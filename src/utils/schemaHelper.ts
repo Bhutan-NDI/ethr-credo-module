@@ -2,7 +2,22 @@
 import type { Schema } from '../ledger/EthereumLedgerService.js'
 
 import axios from 'axios'
-import keccak256 from 'keccak256'
+import canonicalize from 'canonicalize'
+import { sha256, toUtf8Bytes } from 'ethers'
+
+export const SCHEMA_CHECKSUM_ALGORITHM = 'sha256-jcs'
+
+/**
+ * SHA-256 (hex) of the schema's RFC 8785 canonical JSON, so the checksum is
+ * independent of key order and whitespace on the file server.
+ */
+export function computeSchemaChecksum(schema: object): string {
+  const canonicalSchema = canonicalize(schema)
+  if (!canonicalSchema) {
+    throw new Error('Schema could not be canonicalized for checksum calculation')
+  }
+  return sha256(toUtf8Bytes(canonicalSchema)).slice(2)
+}
 
 /**
  * Build schema JSON.
@@ -18,10 +33,7 @@ export async function buildSchemaResource(
   schema: object,
   address: string
 ) {
-  const checksum = await keccak256(String(schema)).toString('hex')
-  if (!checksum) {
-    throw new Error(`Error while calculating checksum!`)
-  }
+  const checksum = computeSchemaChecksum(schema)
 
   return {
     resourceURI: `${did}/resources/${schemaId}`,
@@ -29,9 +41,10 @@ export async function buildSchemaResource(
     resourceId: `${schemaId}`,
     resourceName: `${name}`,
     resourceType: 'W3C-schema',
-    mediaType: '',
+    mediaType: 'application/schema+json',
     created: new Date().toISOString(),
     checksum,
+    checksumAlgorithm: SCHEMA_CHECKSUM_ALGORITHM,
     previousVersionId: '',
     nextVersionId: '',
   }
