@@ -44,6 +44,8 @@ export type ResourcePayload = {
   mediaType: string
   created: string
   checksum: string
+  // Absent on records written before checksums were canonical; such checksums carry no integrity.
+  checksumAlgorithm?: string
   previousVersionId: string | null
   nextVersionId: string | null
 }

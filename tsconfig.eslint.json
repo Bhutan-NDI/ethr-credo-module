@@ -7,6 +7,6 @@
       "afj-ethereum-w3c-module/*": ["src"]
     }
   },
-  "include": ["./.eslintrc.js", "./vitest.config.ts", "types", "tests", "samples", "src"],
+  "include": ["./.eslintrc.js", "./vitest.config.ts", "./vitest.unit.config.ts", "types", "tests", "samples", "src"],
   "exclude": ["node_modules", "build"]
 }

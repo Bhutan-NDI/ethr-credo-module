@@ -80,7 +80,7 @@ module.exports = {
       },
     },
     {
-      files: ['*.test.ts', '**/__tests__/**', '**/tests/**', 'vitest.config.ts', 'demo/**', '**/tests/**'],
+      files: ['*.test.ts', '**/__tests__/**', '**/tests/**', 'vitest*.config.ts', 'demo/**', '**/tests/**'],
       env: {
         jest: true,
         node: false,

@@ -29,7 +29,7 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
-      # Skips the askar binary download; a test step would need install scripts (tests/setup.ts loads askar).
+      # Skips the askar binary download, so only the unit tests (no askar setup) run here.
       - name: Install dependencies
         run: yarn install --frozen-lockfile --ignore-scripts
 
@@ -44,3 +44,6 @@ jobs:
 
       - name: Compile
         run: yarn build
+
+      - name: Unit tests
+        run: yarn vitest run --config vitest.unit.config.ts
